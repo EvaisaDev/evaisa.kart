@@ -43,6 +43,9 @@ component_definitions = {
                 end
             end,
 			NetworkSerialize = function(self, lobby)
+
+				print("Transform NetworkSerialize: \nx:" .. self.position.x .. ", y: " .. self.position.y .. ", z: " .. self.position.z .. ", r: " .. self.rotation)
+
 				return Structs.Transform{
 					x = self.position.x,
 					y = self.position.y,
@@ -51,6 +54,9 @@ component_definitions = {
 				}
 			end,
 			NetworkDeserialize = function(self, lobby, data)
+
+				print("Transform NetworkDeserialize: \nx:" .. data.x .. ", y: " .. data.y .. ", z: " .. data.z .. ", r: " .. data.r)
+
 				-- apply data
 				self.position.x = data.x
 				self.position.y = data.y
@@ -171,7 +177,7 @@ component_definitions = {
                     end
                 end
             end,
-			NetworkSerialize = function(self, lobby)
+			--[[NetworkSerialize = function(self, lobby)
 				return Structs.Velocity{
 					x = self.velocity.x,
 					y = self.velocity.y,
@@ -183,7 +189,7 @@ component_definitions = {
 				self.velocity.x = data.x
 				self.velocity.y = data.y
 				self.velocity.z = data.z
-			end,
+			end,]]
         }
     },
     {
