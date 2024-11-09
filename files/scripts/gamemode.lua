@@ -68,6 +68,7 @@ gamemodes[#gamemodes+1] = {
 		if Networking.receive[event] == nil then
 			return
 		end
+		print("Received event: " .. event)
 		Networking.receive[event](lobby, message, user)
 	end,
 }
