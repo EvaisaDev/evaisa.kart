@@ -1,0 +1,18 @@
+<Biome>
+  <Topology 
+    name="_EMPTY_"
+    mBiomeMaterialsFile="data/materials/biome_forest.xml" 
+    limit_background_image="0"
+    skip_edge_textures="0"
+    fat_biome_edges="0"
+    noise_biome_edges="0"
+    has_rain="0"
+     >
+
+  </Topology>
+
+  <Materials
+    name="empty">
+  </Materials>
+</Biome>
+
