@@ -28,7 +28,9 @@ end
 
 Game.LoadMap = function(lobby, map)
 	TrackSystem.LoadTrack(map)
-	Game.SpawnPlayers(lobby)
+	if(steamutils.IsOwner())then
+		Game.SpawnPlayers(lobby)
+	end
 end
 
 Game.SpawnPlayers = function(lobby)
@@ -39,7 +41,7 @@ Game.SpawnPlayers = function(lobby)
     end
 
 	-- add local player
-	table.insert(player_ids, player_ids)
+	table.insert(player_ids, steamutils.getSteamID())
 
 	local max_players = steam.matchmaking.getLobbyMemberLimit(lobby)
 	local fill_with_npcs = GameHasFlagRun("npcs")
@@ -65,7 +67,7 @@ Game.SpawnPlayers = function(lobby)
 		for i = 1, #player_ids do
 			local spawn_point = spawn_points[(i % #spawn_points) + 1]
 			if(spawn_point)then
-				local player = EntitySystem.NetworkSpawn("racer")
+				local player = EntitySystem.FromType("racer")
 				if(player)then
 					player.transform:SetPosition(spawn_point.x, spawn_point.y)
 					table.insert(players, player)
@@ -81,15 +83,18 @@ Game.SpawnPlayers = function(lobby)
 		local member = player_ids[i]
 		if(member)then
 			print("Setting up player: " .. steam_utils.getTranslatedPersonaName(member))	
-			player:GetComponentOfType("Kart").player_id = member
+			-- set ownership
+			player:SetOwner(member)
+			--player:GetComponentOfType("Kart").player_id = member
 			-- check if this is the local player
-			if(member._id == c)then
+			--[[if(member._id == c)then
 				player:GetComponentOfType("Kart").is_owner = true
 				CameraSystem.target_entity = player
-			end
+			end]]
 		else
-			--player:GetComponentOfType("Kart").is_npc = true
+			player:GetComponentOfType("Kart").is_npc = true
 		end
+		player:NetworkSpawn()
 	end
 
 	

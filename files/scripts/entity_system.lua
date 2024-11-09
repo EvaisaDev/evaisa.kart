@@ -15,6 +15,7 @@ EntitySystem.networkLoadQueue = {}
 function EntitySystem.Create(name)
     local entity = {
         _id = EntitySystem.nextId,
+		_owner = steamutils.getSteamID(),
         _components = {
 			ComponentSystem.CreateComponent("Transform")
 		},
@@ -25,16 +26,16 @@ function EntitySystem.Create(name)
 			for index, component in ipairs(self._components) do
 				if component.Update and component._enabled then
 					component:Update(self, lobby)
-					if(component.is_owner and component.NetworkSerialize and self.network_id and GameGetFrameNum() % (self.update_rate or 1) == 0)then
+					if(component.is_owner and component.NetworkSerialize and self.network_id and GameGetFrameNum() % (component.update_rate or 1) == 0)then
 						local network_data = component:NetworkSerialize(self, lobby)
-						
+						print("Sending update for component " .. component._type)
 						-- implement networking stuff here
 						Networking.send.entity_update(self.network_id, index, network_data)
 					end
 				end
 			end
 		end,
-		NetworkSync = function(self, componentId, data)
+		ComponentSync = function(self, componentId, data)
 			local component = self._components[componentId]
 			if component then
 				if(component.NetworkDeserialize)then
@@ -129,8 +130,21 @@ function EntitySystem.Create(name)
 			
         end,
 		NetworkSpawn = function(self, target)
-			Networking.send.entity_spawn(self.type, self.network_id)
+			Networking.send.entity_spawn(self.type, self.network_id, target, self._owner)
 		end,
+		IsOwner = function(self)
+			if(self._owner == steamutils.getSteamID())then
+				return true
+			end
+			return false
+		end,
+		GetOwner = function(self)
+			return self._owner
+		end,
+		SetOwner = function(self, owner)
+			self._owner = owner
+			Networking.send.update_owner(self.network_id, owner)
+		end
     }
 
 	entity.transform = entity:GetComponentOfType("Transform")
@@ -165,10 +179,11 @@ function EntitySystem.FromType(entityType)
 	return nil
 end
 
-function EntitySystem.NetworkLoad(entityType, networkId)
+function EntitySystem.NetworkLoad(entityType, networkId, owner)
 	local entity = EntitySystem.FromType(entityType)
 	if entity then
 		entity.network_id = networkId
+		entity._owner = owner
 		EntitySystem.entitiesByNetworkId[networkId] = entity
 		return entity
 	end
@@ -177,11 +192,11 @@ function EntitySystem.NetworkLoad(entityType, networkId)
 end
 
 
-function EntitySystem.NetworkSpawn(entityType)
-	local entity = EntitySystem.NetworkLoad(entityType, EntitySystem.nextNetworkId)
+function EntitySystem.NetworkSpawn(entityType, owner)
+	local entity = EntitySystem.NetworkLoad(entityType, EntitySystem.nextNetworkId, owner)
 	if entity then
 
-		Networking.send.entity_spawn(entityType, EntitySystem.nextNetworkId)
+		Networking.send.entity_spawn(entityType, EntitySystem.nextNetworkId, entity._owner)
 
 		EntitySystem.nextNetworkId = EntitySystem.nextNetworkId + 1
 

@@ -5,7 +5,6 @@ component_definitions = {
             position = Vector3(0, 0, 0),
             rotation = 0,
             scale = Vector(1, 1),
-			is_owner = false,
 			update_rate = 1, -- 1 = every frame, 2 = every other frame, etc.
             GetPosition = function(self)
                 return self.position
@@ -69,7 +68,6 @@ component_definitions = {
             drag = 0.95,
             collide_with_map = true,
             debug = false,
-			is_owner = false,
 			update_rate = 1,
             Update = function(self, entity, lobby)
                 -- Apply gravity
@@ -277,7 +275,6 @@ component_definitions = {
                 node_random_offset = 20,
                 node_reach_threshold = 70,
             },
-            is_owner = false,
             is_npc = false,
 			player_id = 0,
             PlayerMovement = function(self, entity)
@@ -397,10 +394,12 @@ component_definitions = {
             Update = function(self, entity, lobby)
                 local map = TrackSystem.GetActiveTrack()
 
-                if self.is_owner then
+				if self.is_npc then
+					self:UpdateAIMovement(entity)
+                elseif self._entity:IsOwner() then
                     self:PlayerMovement(entity)
-                elseif self.is_npc then
-                    self:UpdateAIMovement(entity)
+					-- follow camera
+					CameraSystem.target_entity = entity
                 end
 
                 -- slow down when on slow material
