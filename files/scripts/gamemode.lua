@@ -65,16 +65,6 @@ gamemodes[#gamemodes+1] = {
 	disconnected = function(lobby, player)
 	end,
 	received = function(lobby, event, message, user)
-		if(event == "entity_spawn" and steamutils.IsOwner(user))then
-			local entity = EntitySystem.FromType(message[1])
-			if entity then
-				entity.network_id = message[2]
-			end
-		elseif(event == "entity_update" and steamutils.IsOwner(user))then
-			local entity = EntitySystem.GetEntityByNetworkId(message[1])
-			if entity then
-				entity:NetworkUpdate(message[2])
-			end
-		end
+		Networking.receive[event](lobby, message, user)
 	end,
 }
