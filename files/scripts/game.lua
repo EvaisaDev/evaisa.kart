@@ -35,7 +35,7 @@ Game.SpawnPlayers = function(lobby)
     local player_ids = {}
     local members = steamutils.getLobbyMembers(lobby)
     for i, member in ipairs(members) do
-        table.insert(player_ids, member.id)
+        table.insert(player_ids, member._id)
     end
 
 	-- add local player
@@ -65,7 +65,7 @@ Game.SpawnPlayers = function(lobby)
 		for i = 1, #player_ids do
 			local spawn_point = spawn_points[(i % #spawn_points) + 1]
 			if(spawn_point)then
-				local player = EntitySystem.NetworkSpawn(lobby, "racer")
+				local player = EntitySystem.NetworkSpawn("racer")
 				if(player)then
 					player.transform:SetPosition(spawn_point.x, spawn_point.y)
 					table.insert(players, player)
@@ -83,7 +83,7 @@ Game.SpawnPlayers = function(lobby)
 			print("Setting up player: " .. steam_utils.getTranslatedPersonaName(member))	
 			player:GetComponentOfType("Kart").player_id = member
 			-- check if this is the local player
-			if(member.id == c)then
+			if(member._id == c)then
 				player:GetComponentOfType("Kart").is_owner = true
 				CameraSystem.target_entity = player
 			end

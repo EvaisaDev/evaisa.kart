@@ -9,6 +9,7 @@ EntitySystem.entitiesByNetworkId = {}
 EntitySystem.nextId = 1
 EntitySystem.nextNetworkId = 1
 EntitySystem.uidMap = {}
+EntitySystem.networkLoadQueue = {}
 
 -- Entity creation function
 function EntitySystem.Create(name)
@@ -119,9 +120,17 @@ function EntitySystem.Create(name)
 					component:Destroy(self)
 				end
 			end
-
-            EntitySystem.entities[self.id] = nil
+			if(self.network_id)then
+				EntitySystem.entitiesByNetworkId[self.network_id] = nil
+				Networking.send.entity_destroy(self.network_id)
+			end
+			
+            EntitySystem.entities[self._id] = nil
+			
         end,
+		NetworkSpawn = function(self, target)
+			Networking.send.entity_spawn(self.type, self.network_id)
+		end,
     }
 
 	entity.transform = entity:GetComponentOfType("Transform")
@@ -168,7 +177,7 @@ function EntitySystem.NetworkLoad(entityType, networkId)
 end
 
 
-function EntitySystem.NetworkSpawn(lobby, entityType)
+function EntitySystem.NetworkSpawn(entityType)
 	local entity = EntitySystem.NetworkLoad(entityType, EntitySystem.nextNetworkId)
 	if entity then
 
@@ -184,6 +193,14 @@ end
 
 function EntitySystem.GetEntityByNetworkId(networkId)
 	return EntitySystem.entitiesByNetworkId[networkId]
+end
+
+function EntitySystem.GetEntityByNetworkIdOrRequestSpawn(lobby, networkId)
+	local entity = EntitySystem.GetEntityByNetworkId(networkId)
+	if not entity then
+		Networking.send.entity_request_spawn(networkId)
+	end
+	return entity
 end
 
 function EntitySystem.FromColor(color)
