@@ -48,7 +48,7 @@ Networking = {
 			end
 		end,
 		component_update = function(networkId, componentId, data)
-			steamutils.send("entity_update", {networkId, componentId, data}, steamutils.messageTypes.OtherPlayers, lobby_code, true, true)
+			steamutils.send("component_update", {networkId, componentId, data}, steamutils.messageTypes.OtherPlayers, lobby_code, true, true)
 		end,
 		entity_destroy = function(networkId)
 			steamutils.send("entity_destroy", networkId, steamutils.messageTypes.OtherPlayers, lobby_code, true, true)
