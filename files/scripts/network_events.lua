@@ -54,7 +54,7 @@ Networking = {
 			steamutils.send("entity_destroy", networkId, steamutils.messageTypes.OtherPlayers, lobby_code, true, true)
 		end,
 		entity_request_spawn = function(networkId)
-			steamutils.send("entity_request_spawn", networkId, steamutils.messageTypes.Owner, lobby_code, true, true)
+			steamutils.send("entity_request_spawn", networkId, steamutils.messageTypes.Host, lobby_code, true, true)
 		end,
 		update_owner = function(networkId, owner)
 			steamutils.send("update_owner", {networkId, steam.utils.compressSteamID(owner)}, steamutils.messageTypes.OtherPlayers, lobby_code, true, true)
