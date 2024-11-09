@@ -130,8 +130,9 @@ function EntitySystem.Create(name)
         end,
 		NetworkSpawn = function(self, target)
 			-- generate network id
-			print("Spawning entity with id: " .. self.network_id)
 			self.network_id = EntitySystem.nextNetworkId
+			print("Spawning entity with id: " .. self.network_id)
+			EntitySystem.entitiesByNetworkId[self.network_id] = self
 			EntitySystem.nextNetworkId = EntitySystem.nextNetworkId + 1
 			Networking.send.entity_spawn(self.type, self.network_id, target, self._owner)
 		end,
