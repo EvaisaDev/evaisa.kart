@@ -15,15 +15,15 @@ Networking = {
 		end,
 		entity_destroy = function(lobby, message, user)
 			if steamutils.IsOwner(user) then
-				local entity = EntitySystem.GetEntityByNetworkId(message)
+				local entity = EntitySystem.GetEntityByNetworkId(message[1])
 				if entity then
 					entity:Destroy()
 				end
 			end
 		end,
 		entity_request_spawn = function(lobby, message, user)
-			print("Received entity spawn request for id: " .. message)
-			local entity = EntitySystem.GetEntityByNetworkId(message)
+			print("Received entity spawn request for id: " .. message[1])
+			local entity = EntitySystem.GetEntityByNetworkId(message[1])
 			if entity then
 				print("Entity already exists, spawning for user: " .. tostring(user))
 				entity:NetworkSpawn(user)
@@ -50,10 +50,10 @@ Networking = {
 			steamutils.send("component_update", {networkId, componentId, data}, steamutils.messageTypes.OtherPlayers, lobby_code, true, true)
 		end,
 		entity_destroy = function(networkId)
-			steamutils.send("entity_destroy", networkId, steamutils.messageTypes.OtherPlayers, lobby_code, true, true)
+			steamutils.send("entity_destroy", {networkId}, steamutils.messageTypes.OtherPlayers, lobby_code, true, true)
 		end,
 		entity_request_spawn = function(networkId)
-			steamutils.send("entity_request_spawn", networkId, steamutils.messageTypes.Host, lobby_code, true, true)
+			steamutils.send("entity_request_spawn", {networkId}, steamutils.messageTypes.Host, lobby_code, true, true)
 		end,
 		update_owner = function(networkId, owner)
 			steamutils.send("update_owner", {networkId, steam.utils.compressSteamID(owner)}, steamutils.messageTypes.OtherPlayers, lobby_code, true, true)
