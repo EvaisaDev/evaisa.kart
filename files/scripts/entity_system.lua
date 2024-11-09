@@ -26,11 +26,11 @@ function EntitySystem.Create(name)
 			for index, component in ipairs(self._components) do
 				if component.Update and component._enabled then
 					component:Update(self, lobby)
-					if(self:IsOwner() and component.NetworkSerialize and self.network_id and GameGetFrameNum() % (component.update_rate or 1) == 0)then
-						local network_data = component:NetworkSerialize(self, lobby)
-						-- implement networking stuff here
-						Networking.send.component_update(self.network_id, index, network_data)
-					end
+				end
+				if(self:IsOwner() and component.NetworkSerialize and self.network_id and GameGetFrameNum() % (component.update_rate or 1) == 0)then
+					local network_data = component:NetworkSerialize(self, lobby)
+					-- implement networking stuff here
+					Networking.send.component_update(self.network_id, index, network_data)
 				end
 			end
 			if(steamutils.IsOwner() and self.network_id)then
