@@ -41,6 +41,7 @@ Networking = {
 	},
 	send = {
 		entity_spawn = function(entityType, networkId, target, owner)
+			print("Sending entity spawn message for type: " .. tostring(entityType) .. " with network id: " .. tostring(networkId) .. " and owner: " .. tostring(owner))
 			if(not target)then
 				steamutils.send("entity_spawn", {entityType, networkId, steam.utils.compressSteamID(owner)}, steamutils.messageTypes.OtherPlayers, lobby_code, true, true)
 			else
