@@ -22,12 +22,11 @@ Networking = {
 			end
 		end,
 		entity_request_spawn = function(lobby, message, user)
-			if not steamutils.IsOwner(user) then
-				-- get entity by network id 
-				local entity = EntitySystem.GetEntityByNetworkId(message)
-				if entity then
-					entity:NetworkSpawn(user)
-				end
+			print("Received entity spawn request for id: " .. message)
+			local entity = EntitySystem.GetEntityByNetworkId(message)
+			if entity then
+				print("Entity already exists, spawning for user: " .. tostring(user))
+				entity:NetworkSpawn(user)
 			end
 		end,
 		update_owner = function(lobby, message, user)
