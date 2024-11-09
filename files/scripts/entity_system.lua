@@ -28,9 +28,8 @@ function EntitySystem.Create(name)
 					component:Update(self, lobby)
 					if(self:IsOwner() and component.NetworkSerialize and self.network_id and GameGetFrameNum() % (component.update_rate or 1) == 0)then
 						local network_data = component:NetworkSerialize(self, lobby)
-						print("Sending update for component " .. component._type)
 						-- implement networking stuff here
-						Networking.send.entity_update(self.network_id, index, network_data)
+						Networking.send.component_update(self.network_id, index, network_data)
 					end
 				end
 			end
@@ -130,6 +129,9 @@ function EntitySystem.Create(name)
 			
         end,
 		NetworkSpawn = function(self, target)
+			-- generate network id
+			self.network_id = EntitySystem.nextNetworkId
+			EntitySystem.nextNetworkId = EntitySystem.nextNetworkId + 1
 			Networking.send.entity_spawn(self.type, self.network_id, target, self._owner)
 		end,
 		IsOwner = function(self)
