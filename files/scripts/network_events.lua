@@ -3,7 +3,11 @@ Networking = {
 		entity_spawn = function(lobby, message, user)
 			if steamutils.IsOwner(user) then
 				print("Received entity spawn message for type: " .. tostring(message[1]) .. " with network id: " .. tostring(message[2]))
-				EntitySystem.NetworkLoad(message[1], message[2], message[3] and steam.utils.decompressSteamID(message[3]) or nil)
+				-- make sure the entity doesn't already exist
+				local entity = EntitySystem.GetEntityByNetworkId(message[2])
+				if not entity then
+					EntitySystem.NetworkLoad(message[1], message[2], message[3] and steam.utils.decompressSteamID(message[3]) or nil)
+				end
 			end
 		end,
 		component_update = function(lobby, message, user)
@@ -37,6 +41,12 @@ Networking = {
 					entity._owner = steam.utils.decompressSteamID(message[2])
 				end
 			end
+		end,
+		entity_check = function(lobby, message, user)
+			if(not steamutils.IsOwner(user))then
+				return
+			end
+			EntitySystem.GetEntityByNetworkIdOrRequestSpawn(message[1])
 		end
 	},
 	send = {
@@ -59,6 +69,9 @@ Networking = {
 		end,
 		update_owner = function(networkId, owner)
 			steamutils.send("update_owner", {networkId, steam.utils.compressSteamID(owner)}, steamutils.messageTypes.OtherPlayers, lobby_code, true, true)
+		end,
+		entity_check = function(networkId)
+			steamutils.send("entity_check", {networkId}, steamutils.messageTypes.OtherPlayers, lobby_code, true, true)
 		end
 	}
 }

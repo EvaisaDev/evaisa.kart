@@ -33,6 +33,9 @@ function EntitySystem.Create(name)
 					end
 				end
 			end
+			if(steamutils.IsOwner() and self.network_id)then
+				Networking.send.entity_check(self.network_id)
+			end
 		end,
 		ComponentSync = function(self, componentId, data)
 			local component = self._components[componentId]
