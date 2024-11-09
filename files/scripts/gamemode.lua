@@ -65,6 +65,9 @@ gamemodes[#gamemodes+1] = {
 	disconnected = function(lobby, player)
 	end,
 	received = function(lobby, event, message, user)
+		if Networking.receive[event] == nil then
+			return
+		end
 		Networking.receive[event](lobby, message, user)
 	end,
 }
