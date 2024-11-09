@@ -212,7 +212,7 @@ function EntitySystem.GetEntityByNetworkId(networkId)
 	return EntitySystem.entitiesByNetworkId[networkId]
 end
 
-function EntitySystem.GetEntityByNetworkIdOrRequestSpawn(lobby, networkId)
+function EntitySystem.GetEntityByNetworkIdOrRequestSpawn(networkId)
 	local entity = EntitySystem.GetEntityByNetworkId(networkId)
 	if not entity then
 		Networking.send.entity_request_spawn(networkId)
