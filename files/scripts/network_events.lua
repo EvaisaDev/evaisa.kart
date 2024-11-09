@@ -2,7 +2,7 @@ Networking = {
 	receive = {
 		entity_spawn = function(lobby, message, user)
 			if steamutils.IsOwner(user) then
-				print("Received entity spawn message for type: " .. message[1] .. " with network id: " .. message[2])
+				print("Received entity spawn message for type: " .. tostring(message[1]) .. " with network id: " .. tostring(message[2]))
 				EntitySystem.NetworkLoad(message[1], message[2], message[3] and steam.utils.decompressSteamID(message[3]) or nil)
 			end
 		end,
@@ -23,10 +23,10 @@ Networking = {
 			end
 		end,
 		entity_request_spawn = function(lobby, message, user)
-			print("Received entity spawn request for id: " .. message[1])
+			--print("Received entity spawn request for id: " .. message[1])
 			local entity = EntitySystem.GetEntityByNetworkId(message[1])
 			if entity then
-				print("Entity already exists, spawning for user: " .. tostring(user))
+				--print("Entity already exists, spawning for user: " .. tostring(user))
 				entity:NetworkSpawn(user)
 			end
 		end,
