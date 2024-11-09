@@ -129,11 +129,15 @@ function EntitySystem.Create(name)
 			
         end,
 		NetworkSpawn = function(self, target)
-			-- generate network id
-			self.network_id = EntitySystem.nextNetworkId
+			-- check if we have a network id
+			if(not self.network_id)then
+				-- generate network id
+				self.network_id = EntitySystem.nextNetworkId
+				
+				EntitySystem.entitiesByNetworkId[self.network_id] = self
+				EntitySystem.nextNetworkId = EntitySystem.nextNetworkId + 1
+			end
 			print("Spawning entity with id: " .. self.network_id)
-			EntitySystem.entitiesByNetworkId[self.network_id] = self
-			EntitySystem.nextNetworkId = EntitySystem.nextNetworkId + 1
 			Networking.send.entity_spawn(self._type, self.network_id, target, self._owner)
 		end,
 		IsOwner = function(self)
@@ -186,6 +190,7 @@ function EntitySystem.FromType(entityType)
 end
 
 function EntitySystem.NetworkLoad(entityType, networkId, owner)
+	print("Network load entity: " .. entityType .. " with id: " .. networkId)
 	local entity = EntitySystem.FromType(entityType)
 	if entity then
 		entity.network_id = networkId
