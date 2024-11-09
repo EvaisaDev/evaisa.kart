@@ -134,7 +134,7 @@ function EntitySystem.Create(name)
 			print("Spawning entity with id: " .. self.network_id)
 			EntitySystem.entitiesByNetworkId[self.network_id] = self
 			EntitySystem.nextNetworkId = EntitySystem.nextNetworkId + 1
-			Networking.send.entity_spawn(self.type, self.network_id, target, self._owner)
+			Networking.send.entity_spawn(self._type, self.network_id, target, self._owner)
 		end,
 		IsOwner = function(self)
 			if(self._owner == steamutils.getSteamID())then
@@ -177,7 +177,9 @@ end
 function EntitySystem.FromType(entityType)
 	local data = EntitySystem.uidMap[entityType]
 	if data then
-		return EntitySystem.Load(data)
+		local entity = EntitySystem.Load(data)
+		entity._type = entityType
+		return entity
 	end
 
 	return nil
