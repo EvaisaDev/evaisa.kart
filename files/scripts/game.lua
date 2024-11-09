@@ -35,13 +35,10 @@ end
 
 Game.SpawnPlayers = function(lobby)
     local player_ids = {}
-    local members = steamutils.getLobbyMembers(lobby)
-    for i, member in ipairs(members) do
-        table.insert(player_ids, member._id)
+	for i = 1, steam.matchmaking.getNumLobbyMembers(lobby) do
+		local h = steam.matchmaking.getLobbyMemberByIndex(lobby, i - 1)
+        table.insert(player_ids, h)
     end
-
-	-- add local player
-	table.insert(player_ids, steamutils.getSteamID())
 
 	local max_players = steam.matchmaking.getLobbyMemberLimit(lobby)
 	local fill_with_npcs = GameHasFlagRun("npcs")
