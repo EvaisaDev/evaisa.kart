@@ -8,6 +8,7 @@ dofile("mods/evaisa.kart/files/scripts/network_events.lua")
 dofile("mods/evaisa.kart/files/scripts/entity_system.lua")
 dofile("mods/evaisa.kart/files/scripts/rendering_system.lua")
 dofile("mods/evaisa.kart/files/scripts/track_system.lua")
+Debugging = dofile("mods/evaisa.kart/files/scripts/debugging.lua")
 
 Game = {}
 
@@ -24,6 +25,8 @@ Game.Update = function(lobby)
 		entity:Update(lobby)
 	end
 	CameraSystem.Update()
+	Debugging.Update()
+	Debugging.Draw()
 end
 
 Game.LoadMap = function(lobby, map)
