@@ -109,5 +109,9 @@ CameraSystem.camera_handlers = {
 function CameraSystem.Update()
 	CameraSystem.camera_handlers[CameraSystem.mode]()
 
+	if(InputIsKeyJustDown(19))then
+		CameraSystem.mode = camera_mode == camera_mode.follow and camera_mode.freecam or camera_mode.follow
+	end
+
 	GameSetPostFxParameter("cameraTransform", CameraSystem.position.x, CameraSystem.position.y, CameraSystem.position.z, CameraSystem.rotation)
 end

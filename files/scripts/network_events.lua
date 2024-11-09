@@ -2,6 +2,7 @@ Networking = {
 	receive = {
 		entity_spawn = function(lobby, message, user)
 			if steamutils.IsOwner(user) then
+				print("Received entity spawn message for type: " .. message[1] .. " with network id: " .. message[2])
 				EntitySystem.NetworkLoad(message[1], message[2], message[3] and steam.utils.decompressSteamID(message[3]) or nil)
 			end
 		end,
