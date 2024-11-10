@@ -222,6 +222,10 @@ function Vector:GamePrint(name)
     end
 end
 
+function Vector.Zero()
+	return Vector.new(0, 0)
+end
+
 setmetatable(Vector, { __call = function(_, ...) return Vector.new(...) end })
 
 -- 3D Vector Class
@@ -430,6 +434,10 @@ function Vector3:GamePrint(name)
     else
         print(tostring(self))
     end
+end
+
+function Vector3.Zero()
+	return Vector3.new(0, 0, 0)
 end
 
 setmetatable(Vector3, { __call = function(_, ...) return Vector3.new(...) end })

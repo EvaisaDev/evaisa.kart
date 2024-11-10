@@ -373,3 +373,14 @@ function RenderingSystem.Update()
 	-- reset id to 4
 	RenderingSystem.last_id = 4
 end
+
+function RenderingSystem.Reset()
+	-- kill all rendered sprites
+	for id, entity in pairs(renderedSprites) do
+		if(EntityGetIsAlive(entity))then
+			EntityKill(entity)
+		end
+	end
+	renderedSprites = {}
+	print("Reset rendering system")
+end

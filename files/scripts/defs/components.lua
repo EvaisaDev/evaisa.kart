@@ -9,7 +9,7 @@ component_definitions = {
             GetPosition = function(self)
                 return self.position
             end,
-            SetPosition = function(self, x, y)
+            SetPosition = function(self, x, y, z)
                 if(type(x) == "table")then
                     self.position = x
                 else
@@ -19,6 +19,9 @@ component_definitions = {
                     if(y)then
                         self.position.y = y
                     end
+					if(z)then
+						self.position.z = z
+					end
                 end
             end,
             GetRotation = function(self)
@@ -113,6 +116,7 @@ component_definitions = {
                 end
 
                 -- Handle collisions with other entities
+				--[[
                 local all_entities = EntitySystem.GetAllEntities()
                 for _, other_entity in ipairs(all_entities) do
                     if other_entity ~= entity then
@@ -152,6 +156,7 @@ component_definitions = {
                         end
                     end
                 end
+				]]
             end,
             GetVelocity = function(self)
                 return self.velocity

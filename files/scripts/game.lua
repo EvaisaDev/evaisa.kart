@@ -21,15 +21,17 @@ end
 
 Game.Update = function(lobby)
 	RenderingSystem.Update()
-	for _, entity in ipairs(EntitySystem.entities) do
+	for _, entity in pairs(EntitySystem.entities) do
 		entity:Update(lobby)
 	end
 	CameraSystem.Update()
 	Debugging.Update()
 	Debugging.Draw()
+	EntitySystem.UpdateCollisions()
 end
 
 Game.LoadMap = function(lobby, map)
+	RenderingSystem.Reset()
 	TrackSystem.LoadTrack(map)
 	if(steamutils.IsOwner())then
 		Game.SpawnPlayers(lobby)
