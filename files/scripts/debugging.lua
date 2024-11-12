@@ -10,7 +10,6 @@ local module = {
     showChildEntities = false,
 }
 
-
 module.Update = function()
     if InputIsKeyJustDown(12) then -- F1
         module.open = not module.open
@@ -54,7 +53,7 @@ module.ShowEntitiesTab = function()
     imgui.Text("Loaded Entities: " .. #entities)
 
     -- Search bar
-    local changed, newText = imgui.InputText("Search", module.searchText, 100)
+    local changed, newText = imgui.InputText("Search", module.searchText)
     if changed then
         module.searchText = newText
     end
@@ -66,11 +65,11 @@ module.ShowEntitiesTab = function()
     imgui.BeginChild("Entity List", 0, 0)
 
     if imgui.BeginTable("EntityListTable", 7, imgui.TableFlags.BordersInnerV + imgui.TableFlags.Resizable) then
-		imgui.TableSetupColumn("ID", imgui.TableColumnFlags.WidthFixed)
-		imgui.TableSetupColumn("Type", imgui.TableColumnFlags.WidthStretch, 6)
-		imgui.TableSetupColumn("NetworkID", imgui.TableColumnFlags.WidthStretch, 12)
-		imgui.TableSetupColumn("Name", imgui.TableColumnFlags.WidthFixed)
-		imgui.TableSetupColumn("Owner", imgui.TableColumnFlags.WidthStretch, 6)
+        imgui.TableSetupColumn("ID", imgui.TableColumnFlags.WidthFixed)
+        imgui.TableSetupColumn("Type", imgui.TableColumnFlags.WidthStretch, 6)
+        imgui.TableSetupColumn("NetworkID", imgui.TableColumnFlags.WidthStretch, 12)
+        imgui.TableSetupColumn("Name", imgui.TableColumnFlags.WidthFixed)
+        imgui.TableSetupColumn("Owner", imgui.TableColumnFlags.WidthStretch, 6)
         imgui.TableSetupColumn("Kill", imgui.TableColumnFlags.WidthStretch, 3)
         imgui.TableSetupColumn("Open", imgui.TableColumnFlags.WidthStretch, 3)
         imgui.TableHeadersRow()
@@ -79,20 +78,32 @@ module.ShowEntitiesTab = function()
             local tag_string = table.concat(entity.tags or {}, ", ")
             local entity_name = entity._name or ""
 
-            local show_entity = (module.searchText == "" or string.find(string.lower(tag_string), string.lower(module.searchText)) or string.find(string.lower(entity_name), string.lower(module.searchText)) or string.find(tostring(entity._id), module.searchText))
+            local show_entity = true
+            -- check search text against all columns
+            if (string.find(string.lower(tostring(entity._id)), string.lower(module.searchText)) == nil and
+                string.find(string.lower(entity._type), string.lower(module.searchText)) == nil and
+                string.find(string.lower(tostring(entity.network_id)), string.lower(module.searchText)) == nil and
+                string.find(string.lower(entity._name), string.lower(module.searchText)) == nil and
+                string.find(string.lower(steam_utils.getTranslatedPersonaName(entity._owner)), string.lower(module.searchText)) == nil) then
+                show_entity = false
+            end
+
+            if (entity:GetParent() ~= nil and not module.showChildEntities) then
+                show_entity = false
+            end
 
             if show_entity then
                 imgui.TableNextRow()
-				imgui.TableNextColumn()
-				imgui.Text(tostring(entity._id))
-				imgui.TableNextColumn()
-				imgui.Text(entity._type)
-				imgui.TableNextColumn()
-				imgui.Text(tostring(entity.network_id))
-				imgui.TableNextColumn()
-				imgui.Text(entity._name)
-				imgui.TableNextColumn()
-				imgui.Text(steam_utils.getTranslatedPersonaName(entity._owner))
+                imgui.TableNextColumn()
+                imgui.Text(tostring(entity._id))
+                imgui.TableNextColumn()
+                imgui.Text(entity._type)
+                imgui.TableNextColumn()
+                imgui.Text(tostring(entity.network_id))
+                imgui.TableNextColumn()
+                imgui.Text(entity._name)
+                imgui.TableNextColumn()
+                imgui.Text(steam_utils.getTranslatedPersonaName(entity._owner))
                 imgui.TableNextColumn()
 
                 -- Kill button without styling
@@ -151,7 +162,7 @@ module.EntityInspector = function(window)
                 if imgui.BeginTabItem("Attributes") then
                     -- Entity attributes
                     local entity_name = entity._name or ""
-                    local changed, new_name = imgui.InputText("Name", entity_name, 100)
+                    local changed, new_name = imgui.InputText("Name", entity_name)
                     if changed then
                         entity._name = new_name
                     end
@@ -166,18 +177,28 @@ module.EntityInspector = function(window)
 
                     if imgui.CollapsingHeader("Transform") then
                         local vec = entity.transform:GetPosition()
-						local changed = false
-						changed, vec.x, vec.y, vec.z = imgui.InputFloat3("Position", vec.x, vec.y, vec.z)
-						
-						if(changed)then
-							entity.transform:SetPosition(vec)
-						end
+                        local changed = false
+                        changed, vec.x, vec.y, vec.z = imgui.InputFloat3("Position", vec.x, vec.y, vec.z)
+
+                        if (changed) then
+                            entity.transform:SetPosition(vec)
+                        end
                     end
 
                     imgui.EndTabItem()
                 end
 
+                -- Components Tab
+                if imgui.BeginTabItem("Components") then
+                    module.ShowComponents(entity)
+                    imgui.EndTabItem()
+                end
 
+                -- Children Tab
+                if imgui.BeginTabItem("Children") then
+                    module.ShowChildEntities(entity)
+                    imgui.EndTabItem()
+                end
 
                 imgui.EndTabBar()
             end
@@ -198,6 +219,268 @@ module.EntityInspector = function(window)
             if win == window then
                 table.remove(module.active_windows, idx)
                 break
+            end
+        end
+    end
+end
+
+-- Function to display components
+module.ShowComponents = function(entity)
+    local components = entity._components or {}
+    imgui.Text("Components: " .. #components)
+    imgui.Separator()
+
+    if imgui.BeginTable("ComponentListTable", 3, imgui.TableFlags.BordersInnerV + imgui.TableFlags.Resizable) then
+        imgui.TableSetupColumn("Type", imgui.TableColumnFlags.WidthStretch)
+        imgui.TableSetupColumn("Properties", imgui.TableColumnFlags.WidthStretch)
+        imgui.TableSetupColumn("Actions", imgui.TableColumnFlags.WidthFixed)
+        imgui.TableHeadersRow()
+
+        for _, component in ipairs(components) do
+            imgui.TableNextRow()
+            imgui.TableNextColumn()
+            imgui.Text(component._type or "Unknown")
+            imgui.TableNextColumn()
+
+            if imgui.TreeNode("Properties##" .. tostring(component)) then
+                for key, value in pairs(component) do
+                    if type(value) ~= "function" and string.sub(key, 1, 1) ~= "_" then
+                        imgui.Text(tostring(key) .. ": " .. tostring(value))
+                    end
+                end
+                imgui.TreePop()
+            end
+            imgui.TableNextColumn()
+
+            -- Open button for component
+            local window_id = "ComponentWindow##" .. tostring(component)
+            local window_open = false
+            for _, win in ipairs(module.active_windows) do
+                if win.window_id == window_id then
+                    window_open = true
+                    break
+                end
+            end
+
+            if not window_open then
+                if imgui.Button("Open##" .. tostring(component)) then
+                    local window = {
+                        window_id = window_id,
+                        window_name = "Component - " .. (component._type or "Unknown"),
+                        component = component,
+                        draw_window = module.ComponentEditor,
+                    }
+                    table.insert(module.active_windows, window)
+                end
+            else
+                if imgui.Button("Close##" .. tostring(component)) then
+                    for idx, win in ipairs(module.active_windows) do
+                        if win.window_id == window_id then
+                            table.remove(module.active_windows, idx)
+                            break
+                        end
+                    end
+                end
+            end
+        end
+
+        imgui.EndTable()
+    end
+end
+
+-- Function to display child entities
+module.ShowChildEntities = function(entity)
+    local children = entity:GetChildren() or {}
+    imgui.Text("Child Entities: " .. #children)
+    imgui.Separator()
+
+    if imgui.BeginTable("ChildEntityListTable", 3, imgui.TableFlags.BordersInnerV + imgui.TableFlags.Resizable) then
+        imgui.TableSetupColumn("ID", imgui.TableColumnFlags.WidthFixed)
+        imgui.TableSetupColumn("Name", imgui.TableColumnFlags.WidthStretch)
+        imgui.TableSetupColumn("Actions", imgui.TableColumnFlags.WidthStretch)
+        imgui.TableHeadersRow()
+
+        for _, child in ipairs(children) do
+            imgui.TableNextRow()
+            imgui.TableNextColumn()
+            imgui.Text(tostring(child._id))
+            imgui.TableNextColumn()
+            imgui.Text(child._name or "Unnamed")
+            imgui.TableNextColumn()
+
+            local window_id = "EntityWindow##" .. child._id
+            local window_open = false
+            for _, win in ipairs(module.active_windows) do
+                if win.window_id == window_id then
+                    window_open = true
+                    break
+                end
+            end
+
+            if not window_open then
+                if imgui.Button("Open##" .. child._id) then
+                    local window = {
+                        window_id = window_id,
+                        window_name = "Entity " .. child._id .. " - " .. (child._name or "Unnamed"),
+                        entity = child,
+                        draw_window = module.EntityInspector,
+                    }
+                    table.insert(module.active_windows, window)
+                end
+            else
+                if imgui.Button("Close##" .. child._id) then
+                    for idx, win in ipairs(module.active_windows) do
+                        if win.window_id == window_id then
+                            table.remove(module.active_windows, idx)
+                            break
+                        end
+                    end
+                end
+            end
+        end
+
+        imgui.EndTable()
+    end
+end
+
+-- Function to edit component properties
+module.ComponentEditor = function(window)
+    local component = window.component
+    if component then
+        imgui.SetNextWindowSize(400, 600, imgui.Cond.FirstUseEver)
+        local open = true
+        local should_draw
+        should_draw, open = imgui.Begin(window.window_name .. "###" .. window.window_id, open)
+        if should_draw then
+            imgui.Text("Component Type: " .. (component._type or "Unknown"))
+            imgui.Separator()
+
+            -- Editable properties
+            for key, value in pairs(component) do
+                if type(value) ~= "function" and string.sub(key, 1, 1) ~= "_" then
+                    local valueType = type(value)
+                    if valueType == "number" then
+                        local changed, newValue = imgui.InputFloat(key, value)
+                        if changed then
+                            component[key] = newValue
+                        end
+                    elseif valueType == "string" then
+                        local changed, newValue = imgui.InputText(key, value)
+                        if changed then
+                            component[key] = newValue
+                        end
+                    elseif valueType == "boolean" then
+                        local changed, newValue = imgui.Checkbox(key, value)
+                        if changed then
+                            component[key] = newValue
+                        end
+                    elseif valueType == "table" then
+                        -- Check if the table is a Vector or Vector3
+                        if module.IsVector(value) then
+                            local vec = { x = value.x or 0, y = value.y or 0, z = value.z }
+                            local changed = false
+                            if vec.z ~= nil then
+                                changed, vec.x, vec.y, vec.z = imgui.InputFloat3(key, vec.x, vec.y, vec.z)
+                            else
+                                changed, vec.x, vec.y = imgui.InputFloat2(key, vec.x, vec.y)
+                            end
+                            if changed then
+                                value.x = vec.x
+                                value.y = vec.y
+                                if vec.z ~= nil then
+                                    value.z = vec.z
+                                end
+                            end
+                        else
+                            if imgui.TreeNode(key .. "##" .. tostring(value)) then
+                                module.DrawTable(value)
+                                imgui.TreePop()
+                            end
+                        end
+                    else
+                        imgui.Text(key .. ": " .. tostring(value))
+                    end
+                end
+            end
+        end
+        imgui.End()
+
+        if not open then
+            -- Close the window
+            for idx, win in ipairs(module.active_windows) do
+                if win == window then
+                    table.remove(module.active_windows, idx)
+                    break
+                end
+            end
+        end
+    else
+        -- Component no longer exists, remove window
+        for idx, win in ipairs(module.active_windows) do
+            if win == window then
+                table.remove(module.active_windows, idx)
+                break
+            end
+        end
+    end
+end
+
+-- Helper function to check if a table is a vector
+module.IsVector = function(value)
+    if type(value) == "table" then
+        local has_x = type(value.x) == "number"
+        local has_y = type(value.y) == "number"
+        if has_x and has_y then
+            return true
+        end
+    end
+    return false
+end
+
+-- Recursive function to draw tables
+module.DrawTable = function(tbl)
+    for key, value in pairs(tbl) do
+        if type(value) ~= "function" and string.sub(key, 1, 1) ~= "_" then
+            local valueType = type(value)
+            if valueType == "number" then
+                local changed, newValue = imgui.InputFloat(key, value)
+                if changed then
+                    tbl[key] = newValue
+                end
+            elseif valueType == "string" then
+                local changed, newValue = imgui.InputText(key, value)
+                if changed then
+                    tbl[key] = newValue
+                end
+            elseif valueType == "boolean" then
+                local changed, newValue = imgui.Checkbox(key, value)
+                if changed then
+                    tbl[key] = newValue
+                end
+            elseif valueType == "table" then
+                if module.IsVector(value) then
+                    local vec = { x = value.x or 0, y = value.y or 0, z = value.z }
+                    local changed = false
+                    if vec.z ~= nil then
+                        changed, vec.x, vec.y, vec.z = imgui.InputFloat3(key, vec.x, vec.y, vec.z)
+                    else
+                        changed, vec.x, vec.y = imgui.InputFloat2(key, vec.x, vec.y)
+                    end
+                    if changed then
+                        value.x = vec.x
+                        value.y = vec.y
+                        if vec.z ~= nil then
+                            value.z = vec.z
+                        end
+                    end
+                else
+                    if imgui.TreeNode(key .. "##" .. tostring(value)) then
+                        module.DrawTable(value)
+                        imgui.TreePop()
+                    end
+                end
+            else
+                imgui.Text(key .. ": " .. tostring(value))
             end
         end
     end

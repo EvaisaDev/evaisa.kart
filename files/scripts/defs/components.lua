@@ -6,6 +6,7 @@ component_definitions = {
             rotation = 0,
             scale = Vector(1, 1),
 			update_rate = 1, -- 1 = every frame, 2 = every other frame, etc.
+			inherit_transform = false,
             GetPosition = function(self)
                 return self.position
             end,
@@ -60,6 +61,19 @@ component_definitions = {
 				self.position.z = data.z
 				self.rotation = data.r
 			end,
+			Update = function(self, entity, lobby)
+				if(self.inherit_transform)then
+					local parent = entity:GetParent()
+					if(parent)then
+						local parent_transform = parent:GetComponentOfType("Transform")
+						if(parent_transform)then
+							self.position = parent_transform.position:clone()
+							self.rotation = parent_transform.rotation
+							self.scale = parent_transform.scale:clone()
+						end
+					end
+				end
+			end
         }
     },
     {
@@ -267,47 +281,41 @@ component_definitions = {
             end,
         }
     },
-    {
-        name = "Kart",
-        default_data = {
-            config = {
-                acceleration = 0.2,
-                slow_mult = 0.9,
-                turn_speed = 0.03,
-                jump_power = 3,
-            },
-            ai_config = {
-                node_random_offset = 20,
-                node_reach_threshold = 70,
-            },
-            is_npc = false,
+	{
+		name = "Kart",
+		default_data = {
+			config = {
+				acceleration = 0.2,
+				slow_mult = 0.9,
+				turn_speed = 0.03,
+				jump_power = 3,
+			},
+			is_npc = false,
 			player_id = 0,
-            PlayerMovement = function(self, entity)
-                -- Get the input keys
-                local forwardPressed = InputIsKeyDown(26)
-                local backwardPressed = InputIsKeyDown(22)
-                local leftPressed = InputIsKeyDown(4)
-                local rightPressed = InputIsKeyDown(7)
-                local jumpPressed = InputIsKeyJustDown(44)
+			PlayerMovement = function(self, entity)
+				-- Get the input keys
+				local forwardPressed = InputIsKeyDown(26)
+				local backwardPressed = InputIsKeyDown(22)
+				local leftPressed = InputIsKeyDown(4)
+				local rightPressed = InputIsKeyDown(7)
+				local jumpPressed = InputIsKeyJustDown(44)
 
-                -- Get the kart configuration
-                local acceleration = self.config.acceleration
-                local turn_speed = self.config.turn_speed
-                local jump_power = self.config.jump_power
+				-- Get the kart configuration
+				local acceleration = self.config.acceleration
+				local turn_speed = self.config.turn_speed
+				local jump_power = self.config.jump_power
 
-				
+				-- Turn left or right based on input
+				if leftPressed then
+					entity.transform.rotation = entity.transform.rotation + turn_speed
+				end
+				if rightPressed then
+					entity.transform.rotation = entity.transform.rotation - turn_speed
+				end
 
-                -- Turn left or right based on input
-                if leftPressed then
-                    entity.transform.rotation = entity.transform.rotation + turn_speed
-                end
-                if rightPressed then
-                    entity.transform.rotation = entity.transform.rotation - turn_speed
-                end
-
-                -- Get the Velocity component
-                local velocityComponent = entity:GetComponentOfType("Velocity")
-                if not velocityComponent then return end
+				-- Get the Velocity component
+				local velocityComponent = entity:GetComponentOfType("Velocity")
+				if not velocityComponent then return end
 
 				local old_speed = velocityComponent.velocity:len()
 
@@ -319,124 +327,85 @@ component_definitions = {
 					velocityComponent.velocity.y = velocityComponent.velocity.y - math.sin(entity.transform.rotation + math.pi / 2) * acceleration
 				end
 
-                -- Jump when the jump key is pressed
-                if jumpPressed and entity.transform.position.z == 0 then
-                    velocityComponent.velocity.z = jump_power
-                end
-            end,
+				-- Jump when the jump key is pressed
+				if jumpPressed and entity.transform.position.z == 0 then
+					velocityComponent.velocity.z = jump_power
+				end
+			end,
 
-            UpdateAIMovement = function(self, entity)
-                local map = TrackSystem.GetActiveTrack()
-                local ai_nodes = map.ai_nodes
-                
-                if not ai_nodes or #ai_nodes == 0 then
-                    return
-                end
-
-                self.current_node_index = self.current_node_index or 1
-                
-                -- Get the current target node
-                local target_index = self.current_node_index
-                if target_index > #ai_nodes then
-                    self.current_node_index = 1  -- Loop back to the first node
-                    target_index = 1
-                end
-                if(self.target_node == nil) then
-                    self.target_node = {x = ai_nodes[self.current_node_index].x + Random(-self.ai_config.node_random_offset, self.ai_config.node_random_offset), y = ai_nodes[self.current_node_index].y + Random(-self.ai_config.node_random_offset, self.ai_config.node_random_offset)}
-                end
-
-                -- Calculate the direction vector towards the target node
-                local dx = self.target_node.x - entity.transform.position.x
-                local dy = self.target_node.y - entity.transform.position.y
-                local distance = math.sqrt(dx * dx + dy * dy)
-
-                -- Threshold to consider the node as reached
-                local threshold = self.ai_config.node_reach_threshold
-
-                if distance < threshold then
-                    -- Node reached, target the next node
-                    self.current_node_index = self.current_node_index + 1
-                    if self.current_node_index > #ai_nodes then
-                        self.current_node_index = 1  -- Loop back to the first node
-                    end
-                    self.target_node = {x = ai_nodes[self.current_node_index].x + Random(-self.ai_config.node_random_offset, self.ai_config.node_random_offset), y = ai_nodes[self.current_node_index].y + Random(-self.ai_config.node_random_offset, self.ai_config.node_random_offset)}
-                    dx = self.target_node.x - entity.transform.position.x
-                    dy = self.target_node.y - entity.transform.position.y
-                    distance = math.sqrt(dx * dx + dy * dy)
-                end
-
-                -- Calculate the desired rotation towards the target node
-                local desired_r = math.atan2(dy, dx) - math.pi / 2
-
-                -- Calculate angle difference
-                local angle_diff = desired_r - entity.transform.rotation
-                angle_diff = (angle_diff + math.pi) % (2 * math.pi) - math.pi  -- Normalize to [-π, π]
-
-                -- Smoothly adjust rotation
-                local rotation_speed = self.config.turn_speed  -- Adjust multiplier as needed
-                if math.abs(angle_diff) < rotation_speed then
-                    entity.transform.rotation = desired_r
-                else
-                    if angle_diff > 0 then
-                        entity.transform.rotation = entity.transform.rotation + rotation_speed
-                    else
-                        entity.transform.rotation = entity.transform.rotation - rotation_speed
-                    end
-                end
-
-                -- Ensure rotation stays within [0, 2π]
-                entity.transform.rotation = (entity.transform.rotation + 2 * math.pi) % (2 * math.pi)
-
-                -- Get the Velocity component
-                local velocityComponent = entity:GetComponentOfType("Velocity")
-                if not velocityComponent then return end
-
-				-- Accelerate towards the target node
+			UpdateAIMovement = function(self, entity)
+				local map = TrackSystem.GetActiveTrack()
+				local x = entity.transform.position.x
+				local y = entity.transform.position.y
+			
+				-- Get the flow direction at the current position
+				local dx, dy = TrackSystem.GetNextDirection(x, y)
+			
+				if dx == 0 and dy == 0 then
+					-- No valid flow direction, slow down or handle accordingly
+					local velocityComponent = entity:GetComponentOfType("Velocity")
+					if velocityComponent then
+						velocityComponent.velocity.x = velocityComponent.velocity.x * 0.9
+						velocityComponent.velocity.y = velocityComponent.velocity.y * 0.9
+					end
+					return
+				end
+			
+				-- Calculate the desired rotation towards the flow direction
+				local desired_r = math.atan2(dy, dx) - math.pi / 2
+			
+				-- Calculate angle difference
+				local angle_diff = desired_r - entity.transform.rotation
+				angle_diff = (angle_diff + math.pi) % (2 * math.pi) - math.pi  -- Normalize to [-π, π]
+			
+				-- Smoothly adjust rotation
+				local rotation_speed = self.config.turn_speed
+				if math.abs(angle_diff) < rotation_speed then
+					entity.transform.rotation = desired_r
+				else
+					if angle_diff > 0 then
+						entity.transform.rotation = entity.transform.rotation + rotation_speed
+					else
+						entity.transform.rotation = entity.transform.rotation - rotation_speed
+					end
+				end
+			
+				-- Ensure rotation stays within [0, 2π]
+				entity.transform.rotation = (entity.transform.rotation + 2 * math.pi) % (2 * math.pi)
+			
+				-- Accelerate in the direction the AI is facing
+				local velocityComponent = entity:GetComponentOfType("Velocity")
+				if not velocityComponent then return end
+			
 				velocityComponent.velocity.x = velocityComponent.velocity.x + math.cos(entity.transform.rotation + math.pi / 2) * self.config.acceleration
 				velocityComponent.velocity.y = velocityComponent.velocity.y + math.sin(entity.transform.rotation + math.pi / 2) * self.config.acceleration
-            end,
+			end,
+			
 
-            Update = function(self, entity, lobby)
-                local map = TrackSystem.GetActiveTrack()
+			Update = function(self, entity, lobby)
+				local map = TrackSystem.GetActiveTrack()
 
 				if self.is_npc then
 					self:UpdateAIMovement(entity)
-                elseif self._entity:IsOwner() then
-                    self:PlayerMovement(entity)
-					-- follow camera
+				elseif self._entity:IsOwner() then
+					self:PlayerMovement(entity)
+					-- Follow camera
 					CameraSystem.target_entity = entity
-                end
+				end
 
-                -- slow down when on slow material
-                local x = entity.transform.position.x
-                local y = entity.transform.position.y
-                local material = TrackSystem.CheckMaterial(x, y)
+				-- Slow down when on slow material
+				local x = entity.transform.position.x
+				local y = entity.transform.position.y
+				local material = TrackSystem.CheckMaterial(x, y)
 				local velocityComponent = entity:GetComponentOfType("Velocity")
-                if material == MaterialTypes.slow or material == MaterialTypes.out_of_bounds or material == MaterialTypes.solid then
+				if material == MaterialTypes.slow or material == MaterialTypes.out_of_bounds or material == MaterialTypes.solid then
 					if velocityComponent then
 						velocityComponent.velocity.x = velocityComponent.velocity.x * self.config.slow_mult
 						velocityComponent.velocity.y = velocityComponent.velocity.y * self.config.slow_mult
 					end
-                end
+				end
+			end,
+		}
+	}
 
-                -- if out of bounds, reset position to the nearest AI node
-                if material == MaterialTypes.out_of_bounds then
-                    local ai_nodes = map.ai_nodes
-                    local nearest_node = ai_nodes[1]
-                    local min_distance = math.huge
-                    for _, node in ipairs(ai_nodes) do
-                        local dx = node.x - entity.transform.position.x
-                        local dy = node.y - entity.transform.position.y
-                        local distance = math.sqrt(dx * dx + dy * dy)
-                        if distance < min_distance then
-                            min_distance = distance
-                            nearest_node = node
-                        end
-                    end
-                    entity.transform.position.x = nearest_node.x
-                    entity.transform.position.y = nearest_node.y
-                end
-            end,
-        }
-    }
 }

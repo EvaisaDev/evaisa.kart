@@ -20,6 +20,8 @@ function EntitySystem.Create(name)
 			ComponentSystem.CreateComponent("Transform")
 		},
 		_name = name or ("Entity" .. EntitySystem.nextId),
+		_parent = nil,
+		_children = {},
 
 		Update = function(self, lobby)
 			-- update all components
@@ -155,7 +157,32 @@ function EntitySystem.Create(name)
 		SetOwner = function(self, owner)
 			self._owner = owner
 			Networking.send.update_owner(self.network_id, owner)
+		end,
+		SetParent = function(self, parent)
+			self._parent = parent
+			table.insert(parent._children, self)
+		end,
+		GetParent = function(self)
+			return self._parent
+		end,
+		GetChildren = function(self)
+			return self._children
+		end,
+		RemoveFromParent = function(self)
+			if(self._parent)then
+				for i, child in ipairs(self._parent._children) do
+					if(child == self)then
+						table.remove(self._parent._children, i)
+						self._parent = nil
+						return
+					end
+				end
+			end
+		end,
+		GetComponents = function(self)
+			return self._components
 		end
+
     }
 
 	entity.transform = entity:GetComponentOfType("Transform")
