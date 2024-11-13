@@ -332,6 +332,7 @@ function DrawLine3D(gui, id, point1, point2, width, r, g, b, a)
     local offsetY = math.cos(angle) * -(width / 2)
     GuiImage(gui, id, vec1.x + offsetX, vec1.y + offsetY, "mods/evaisa.kart/files/textures/1pixel.png", a, length, width, angle)
 end
+
 local round = function(num, numDecimalPlaces)
 	local mult = 10^(numDecimalPlaces or 0)
 	return math.floor(num * mult + 0.5) / mult

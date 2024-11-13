@@ -289,9 +289,17 @@ component_definitions = {
 				slow_mult = 0.9,
 				turn_speed = 0.03,
 				jump_power = 3,
+				deceleration = 0.1,  -- Rate at which the kart should decelerate
+			},
+			ai_config = {
+				node_reach_threshold = 50,
+				node_random_offset = 40,
+				max_turn_speed = 0.1,  -- Slow down when making sharp turns
 			},
 			is_npc = false,
 			player_id = 0,
+			current_node = nil,         -- The current node the AI is moving towards
+	
 			PlayerMovement = function(self, entity)
 				-- Get the input keys
 				local forwardPressed = InputIsKeyDown(26)
@@ -299,12 +307,12 @@ component_definitions = {
 				local leftPressed = InputIsKeyDown(4)
 				local rightPressed = InputIsKeyDown(7)
 				local jumpPressed = InputIsKeyJustDown(44)
-
+	
 				-- Get the kart configuration
 				local acceleration = self.config.acceleration
 				local turn_speed = self.config.turn_speed
 				local jump_power = self.config.jump_power
-
+	
 				-- Turn left or right based on input
 				if leftPressed then
 					entity.transform.rotation = entity.transform.rotation + turn_speed
@@ -312,13 +320,11 @@ component_definitions = {
 				if rightPressed then
 					entity.transform.rotation = entity.transform.rotation - turn_speed
 				end
-
+	
 				-- Get the Velocity component
 				local velocityComponent = entity:GetComponentOfType("Velocity")
 				if not velocityComponent then return end
-
-				local old_speed = velocityComponent.velocity:len()
-
+	
 				if forwardPressed then
 					velocityComponent.velocity.x = velocityComponent.velocity.x + math.cos(entity.transform.rotation + math.pi / 2) * acceleration
 					velocityComponent.velocity.y = velocityComponent.velocity.y + math.sin(entity.transform.rotation + math.pi / 2) * acceleration
@@ -326,38 +332,62 @@ component_definitions = {
 					velocityComponent.velocity.x = velocityComponent.velocity.x - math.cos(entity.transform.rotation + math.pi / 2) * acceleration
 					velocityComponent.velocity.y = velocityComponent.velocity.y - math.sin(entity.transform.rotation + math.pi / 2) * acceleration
 				end
-
+	
 				-- Jump when the jump key is pressed
 				if jumpPressed and entity.transform.position.z == 0 then
 					velocityComponent.velocity.z = jump_power
 				end
 			end,
-
+	
 			UpdateAIMovement = function(self, entity)
-				local map = TrackSystem.GetActiveTrack()
+				local track = TrackSystem.GetActiveTrack()
+				if not track then return end
+	
 				local x = entity.transform.position.x
 				local y = entity.transform.position.y
-			
-				-- Get the flow direction at the current position
-				local dx, dy = TrackSystem.GetNextDirection(x, y)
-			
-				if dx == 0 and dy == 0 then
-					-- No valid flow direction, slow down or handle accordingly
-					local velocityComponent = entity:GetComponentOfType("Velocity")
-					if velocityComponent then
-						velocityComponent.velocity.x = velocityComponent.velocity.x * 0.9
-						velocityComponent.velocity.y = velocityComponent.velocity.y * 0.9
-					end
-					return
+	
+				-- If the AI doesn't have a current node, find the closest node to its position
+				if not self.current_node then
+					self.current_node = TrackSystem.FindClosestNode(x, y, TrackSystem.current_track)
+					self.current_offset_x = math.random(-self.ai_config.node_random_offset, self.ai_config.node_random_offset)
+					self.current_offset_y = math.random(-self.ai_config.node_random_offset, self.ai_config.node_random_offset)
 				end
-			
-				-- Calculate the desired rotation towards the flow direction
+	
+				local current_node = self.current_node
+				if not current_node then return end
+	
+				-- Calculate direction to the current node
+				local dx = current_node.x - x
+				local dy = current_node.y - y
+				local distance_sq = dx * dx + dy * dy
+	
+				-- Check if the AI has reached the current node
+				local reach_threshold_sq = self.ai_config.node_reach_threshold * self.ai_config.node_reach_threshold
+				if distance_sq < reach_threshold_sq then
+					-- Choose the next node(s)
+					local next_nodes = TrackSystem.GetNextNodes(current_node)
+					if #next_nodes > 0 then
+						-- Randomly select one of the next nodes
+						local random_index = math.random(1, #next_nodes)
+						self.current_node = next_nodes[random_index]
+						self.current_offset_x = math.random(-self.ai_config.node_random_offset, self.ai_config.node_random_offset)
+						self.current_offset_y = math.random(-self.ai_config.node_random_offset, self.ai_config.node_random_offset)
+					else
+						-- If no next nodes (end of path), loop back to the first node
+						self.current_node = track.nodes[1]
+					end
+					-- Update direction to new current node
+					dx = (self.current_node.x + self.current_offset_x) - x
+					dy = (self.current_node.y + self.current_offset_y) - y
+				end
+	
+				-- Calculate the desired rotation towards the current node
 				local desired_r = math.atan2(dy, dx) - math.pi / 2
-			
+	
 				-- Calculate angle difference
 				local angle_diff = desired_r - entity.transform.rotation
 				angle_diff = (angle_diff + math.pi) % (2 * math.pi) - math.pi  -- Normalize to [-π, π]
-			
+	
 				-- Smoothly adjust rotation
 				local rotation_speed = self.config.turn_speed
 				if math.abs(angle_diff) < rotation_speed then
@@ -369,33 +399,58 @@ component_definitions = {
 						entity.transform.rotation = entity.transform.rotation - rotation_speed
 					end
 				end
-			
+	
 				-- Ensure rotation stays within [0, 2π]
 				entity.transform.rotation = (entity.transform.rotation + 2 * math.pi) % (2 * math.pi)
-			
-				-- Accelerate in the direction the AI is facing
+	
+				-- Adjust speed based on turn angle
+				local speed_multiplier = 1.0
+				if math.abs(angle_diff) > math.pi / 6 then  -- If the turn is sharper than 30 degrees
+					speed_multiplier = self.ai_config.max_turn_speed  -- Slow down significantly
+				end
+	
+				-- Accelerate in the direction the AI is facing, applying speed multiplier
 				local velocityComponent = entity:GetComponentOfType("Velocity")
 				if not velocityComponent then return end
-			
-				velocityComponent.velocity.x = velocityComponent.velocity.x + math.cos(entity.transform.rotation + math.pi / 2) * self.config.acceleration
-				velocityComponent.velocity.y = velocityComponent.velocity.y + math.sin(entity.transform.rotation + math.pi / 2) * self.config.acceleration
+	
+				velocityComponent.velocity.x = velocityComponent.velocity.x + math.cos(entity.transform.rotation + math.pi / 2) * self.config.acceleration * speed_multiplier
+				velocityComponent.velocity.y = velocityComponent.velocity.y + math.sin(entity.transform.rotation + math.pi / 2) * self.config.acceleration * speed_multiplier
+	
+				-- Check if the upcoming turn is sharp and decelerate accordingly
+				local next_nodes = TrackSystem.GetNextNodes(current_node)
+				if #next_nodes > 0 then
+					local next_node = next_nodes[1]
+					local future_dx = next_node.x - current_node.x
+					local future_dy = next_node.y - current_node.y
+					local future_angle = math.atan2(future_dy, future_dx) - math.pi / 2
+					local future_angle_diff = (future_angle - desired_r + math.pi) % (2 * math.pi) - math.pi
+	
+					-- Decelerate if the upcoming turn is sharp
+					if math.abs(future_angle_diff) > math.pi / 4 then  -- Threshold of 45 degrees
+						velocityComponent.velocity.x = velocityComponent.velocity.x * (1 - self.config.deceleration)
+						velocityComponent.velocity.y = velocityComponent.velocity.y * (1 - self.config.deceleration)
+					end
+				end
 			end,
-			
-
+	
 			Update = function(self, entity, lobby)
 				local map = TrackSystem.GetActiveTrack()
-
+				if not map then return end
+	
+				local x = entity.transform.position.x
+				local y = entity.transform.position.y
+	
 				if self.is_npc then
 					self:UpdateAIMovement(entity)
 				elseif self._entity:IsOwner() then
 					self:PlayerMovement(entity)
+	
 					-- Follow camera
 					CameraSystem.target_entity = entity
 				end
-
-				-- Slow down when on slow material
-				local x = entity.transform.position.x
-				local y = entity.transform.position.y
+	
+				-- Remove checkpoint handling since we're not using checkpoints
+	
 				local material = TrackSystem.CheckMaterial(x, y)
 				local velocityComponent = entity:GetComponentOfType("Velocity")
 				if material == MaterialTypes.slow or material == MaterialTypes.out_of_bounds or material == MaterialTypes.solid then

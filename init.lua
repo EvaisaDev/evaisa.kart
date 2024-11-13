@@ -12,4 +12,9 @@ function OnWorldPreUpdate()
     if(not ModIsEnabled("evaisa.mp"))then
         GamePrint("This gamemode requires the mod 'evaisa.mp' (Noita Online) to be enabled.")
     end
+	GameSetCameraPos(0, 0)
+end
+
+function OnWorldPostUpdate()
+	GameSetCameraPos(0, 0)
 end

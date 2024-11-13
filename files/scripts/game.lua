@@ -28,6 +28,7 @@ Game.Update = function(lobby)
 	Debugging.Update()
 	Debugging.Draw()
 	EntitySystem.UpdateCollisions()
+	TrackSystem.Update()
 end
 
 Game.LoadMap = function(lobby, map)

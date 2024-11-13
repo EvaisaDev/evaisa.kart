@@ -12,11 +12,17 @@ RenderingSystem = {
 	camera = CameraSystem,
 	horizonOffset = 0.5,
 	last_id = 4,
+	last_debug_id = 1352551,
 }
 
 RenderingSystem.new_id = function()
 	RenderingSystem.last_id = RenderingSystem.last_id + 1
 	return RenderingSystem.last_id
+end
+
+RenderingSystem.new_debug_id = function()
+	RenderingSystem.last_debug_id = RenderingSystem.last_debug_id + 1
+	return RenderingSystem.last_debug_id
 end
 
 local texture_types = {
@@ -352,6 +358,53 @@ function RenderingSystem.RenderBillboard(id, texture, x, y, z, sprite_scale)
     end
 end
 
+dofile("data/scripts/lib/utilities.lua")
+
+
+function RenderingSystem.DrawLine(point1, point2, width, r, g, b, a)
+    r = r or 1
+    g = g or 1
+    b = b or 1
+    a = a or 1
+
+	local uv1 = RenderingSystem.worldToScreenUV({point1.x, point1.y, point1.z}, {
+		RenderingSystem.camera.position.x,
+		RenderingSystem.camera.position.y,
+		RenderingSystem.camera.position.z,
+		RenderingSystem.camera.rotation
+	})
+	local uv2 = RenderingSystem.worldToScreenUV({point2.x, point2.y, point2.z}, {
+		RenderingSystem.camera.position.x,
+		RenderingSystem.camera.position.y,
+		RenderingSystem.camera.position.z,
+		RenderingSystem.camera.rotation
+	})
+
+    local screen_width, screen_height = GuiGetScreenDimensions(gui)
+
+    local render_x = screen_width * uv1[1]
+	local render_y = screen_height * (1.0 - uv1[2])
+	local render_x2 = screen_width * uv2[1]
+	local render_y2 = screen_height * (1.0 - uv2[2])
+
+	-- frustum culling based on uv1[3]
+	if uv1[3] < 0 or uv2[3] < 0 then
+		return
+	end
+	
+
+	local vec1 = Vector.new(render_x, render_y)
+	local vec2 = Vector.new(render_x2, render_y2)
+	
+    local length = vec1:distance(vec2)
+    local angle = (vec1:direction(vec2)):radian()
+
+    GuiColorSetForNextWidget(gui, r, g, b, a)
+    local offsetX = math.sin(angle) * (width / 2)
+    local offsetY = math.cos(angle) * -(width / 2)
+    GuiImage(gui, RenderingSystem.new_debug_id(), vec1.x + offsetX, vec1.y + offsetY, "mods/evaisa.kart/files/textures/1pixel.png", a, length, width, angle)
+end
+
 function RenderingSystem.GenerateTextures()
 	for i, texture in ipairs(texture_definitions) do
 		if(texture.defs)then
@@ -372,6 +425,8 @@ end
 function RenderingSystem.Update()
 	-- reset id to 4
 	RenderingSystem.last_id = 4
+	RenderingSystem.last_debug_id = 1352551
+	GuiStartFrame(gui)
 end
 
 function RenderingSystem.Reset()
