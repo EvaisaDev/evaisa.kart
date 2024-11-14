@@ -24,11 +24,11 @@ Game.Update = function(lobby)
 	for _, entity in pairs(EntitySystem.entities) do
 		entity:Update(lobby)
 	end
-	CameraSystem.Update()
 	Debugging.Update()
 	Debugging.Draw()
 	EntitySystem.UpdateCollisions()
 	TrackSystem.Update()
+	CameraSystem.Update()
 end
 
 Game.LoadMap = function(lobby, map)

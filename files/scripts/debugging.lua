@@ -31,6 +31,14 @@ module.Draw = function()
                     module.ShowCheatsTab()
                     imgui.EndTabItem()
                 end
+				if imgui.BeginTabItem("Camera") then
+					module.ShowCameraTab()
+					imgui.EndTabItem()
+				end
+				if imgui.BeginTabItem("Rendering") then
+					module.ShowRenderingTab()
+					imgui.EndTabItem()
+				end
                 imgui.EndTabBar()
             end
         end
@@ -148,6 +156,199 @@ module.ShowEntitiesTab = function()
     end
 
     imgui.EndChild()
+end
+
+module.ShowCameraTab = function()
+	--[[
+		local camera_mode = {
+		orbit = 1,
+		freecam = 2,
+		follow = 3,
+	}
+
+	CameraSystem = {
+		mode = camera_mode.follow,
+		position = Vector3.new(0, 0, 25),
+		rotation = 0,
+		height = 25,
+		target_entity = nil,
+		follow_distance = 10,
+		follow_speed = 0.1,
+	}
+	]]
+
+
+	for key, value in pairs(CameraSystem) do
+		if type(value) ~= "function" and string.sub(key, 1, 1) ~= "_" then
+			local valueType = type(value)
+			if key == "mode" then
+				-- dropdown with camera modes
+				local modes = { "orbit", "freecam", "follow" }
+				local mode = CameraSystem.mode
+				local changed, new_mode = imgui.Combo("Mode", mode, modes)
+				if changed then
+					CameraSystem.mode = new_mode
+				end
+			elseif valueType == "number" then
+				local changed, newValue = imgui.DragFloat(key, value)
+				if changed then
+					CameraSystem[key] = newValue
+				end
+			elseif valueType == "string" then
+				local changed, newValue = imgui.InputText(key, value)
+				if changed then
+					CameraSystem[key] = newValue
+				end
+			elseif valueType == "boolean" then
+				local changed, newValue = imgui.Checkbox(key, value)
+				if changed then
+					CameraSystem[key] = newValue
+				end
+			elseif valueType == "table" then
+				-- Check if the table is a Vector or Vector3
+				if(value.is_entity)then
+					local entity = value
+					local entity_name = entity._name or ""
+					local window_id = "EntityWindow##" .. entity._id
+					local window_open = false
+					for _, win in ipairs(module.active_windows) do
+						if win.window_id == window_id then
+							window_open = true
+							break
+						end
+					end
+
+					imgui.Text(key .. ": " .. entity_name)
+					imgui.SameLine()
+					if not window_open then
+						if imgui.Button("Open##" .. entity._id) then
+							local window = {
+								window_id = window_id,
+								window_name = "Entity " .. entity._id .. " - " .. (entity._name or "Unnamed"),
+								entity = entity,
+								draw_window = module.EntityInspector,
+							}
+							table.insert(module.active_windows, window)
+						end
+					else
+						if imgui.Button("Close##" .. entity._id) then
+							for idx, win in ipairs(module.active_windows) do
+								if win.window_id == window_id then
+									table.remove(module.active_windows, idx)
+									break
+								end
+							end
+						end
+					end
+				elseif module.IsVector(value) then
+					local vec = { x = value.x or 0, y = value.y or 0, z = value.z }
+					local changed = false
+					if vec.z ~= nil then
+						changed, vec.x, vec.y, vec.z = imgui.DragFloat3(key, vec.x, vec.y, vec.z)
+					else
+						changed, vec.x, vec.y = imgui.DragFloat2(key, vec.x, vec.y)
+					end
+					if changed then
+						value.x = vec.x
+						value.y = vec.y
+						if vec.z ~= nil then
+							value.z = vec.z
+						end
+					end
+				else
+					if imgui.TreeNode(key .. "##" .. tostring(value)) then
+						module.DrawTable(value)
+						imgui.TreePop()
+					end
+				end
+			else
+				imgui.Text(key .. ": " .. tostring(value))
+			end
+		end
+	end
+end
+
+module.ShowRenderingTab = function()
+	for key, value in pairs(RenderingSystem) do
+		if type(value) ~= "function" and string.sub(key, 1, 1) ~= "_" then
+			local valueType = type(value)
+			if valueType == "number" then
+				local changed, newValue = imgui.DragFloat(key, value)
+				if changed then
+					RenderingSystem[key] = newValue
+				end
+			elseif valueType == "string" then
+				local changed, newValue = imgui.InputText(key, value)
+				if changed then
+					RenderingSystem[key] = newValue
+				end
+			elseif valueType == "boolean" then
+				local changed, newValue = imgui.Checkbox(key, value)
+				if changed then
+					RenderingSystem[key] = newValue
+				end
+			elseif valueType == "table" then
+				-- Check if the table is a Vector or Vector3
+				if(value.is_entity)then
+					local entity = value
+					local entity_name = entity._name or ""
+					local window_id = "EntityWindow##" .. entity._id
+					local window_open = false
+					for _, win in ipairs(module.active_windows) do
+						if win.window_id == window_id then
+							window_open = true
+							break
+						end
+					end
+
+					imgui.Text(key .. ": " .. entity_name)
+					imgui.SameLine()
+					if not window_open then
+						if imgui.Button("Open##" .. entity._id) then
+							local window = {
+								window_id = window_id,
+								window_name = "Entity " .. entity._id .. " - " .. (entity._name or "Unnamed"),
+								entity = entity,
+								draw_window = module.EntityInspector,
+							}
+							table.insert(module.active_windows, window)
+						end
+					else
+						if imgui.Button("Close##" .. entity._id) then
+							for idx, win in ipairs(module.active_windows) do
+								if win.window_id == window_id then
+									table.remove(module.active_windows, idx)
+									break
+								end
+							end
+						end
+					end
+				elseif module.IsVector(value) then
+					local vec = { x = value.x or 0, y = value.y or 0, z = value.z }
+					local changed = false
+					if vec.z ~= nil then
+						changed, vec.x, vec.y, vec.z = imgui.DragFloat3(key, vec.x, vec.y, vec.z)
+					else
+						changed, vec.x, vec.y = imgui.DragFloat2(key, vec.x, vec.y)
+					end
+					if changed then
+						value.x = vec.x
+						value.y = vec.y
+						if vec.z ~= nil then
+							value.z = vec.z
+						end
+					end
+				else
+					if imgui.TreeNode(key .. "##" .. tostring(value)) then
+						module.DrawTable(value)
+						imgui.TreePop()
+					end
+				end
+			else
+				imgui.Text(key .. ": " .. tostring(value))
+			end
+		end
+	end
 end
 
 module.EntityInspector = function(window)
@@ -360,7 +561,7 @@ module.ComponentEditor = function(window)
                 if type(value) ~= "function" and string.sub(key, 1, 1) ~= "_" then
                     local valueType = type(value)
                     if valueType == "number" then
-                        local changed, newValue = imgui.InputFloat(key, value)
+                        local changed, newValue = imgui.DragFloat(key, value)
                         if changed then
                             component[key] = newValue
                         end
@@ -376,13 +577,47 @@ module.ComponentEditor = function(window)
                         end
                     elseif valueType == "table" then
                         -- Check if the table is a Vector or Vector3
-                        if module.IsVector(value) then
+                        if(value.is_entity)then
+							local entity = value
+							local entity_name = entity._name or ""
+							local window_id = "EntityWindow##" .. entity._id
+							local window_open = false
+							for _, win in ipairs(module.active_windows) do
+								if win.window_id == window_id then
+									window_open = true
+									break
+								end
+							end
+	
+							imgui.Text(key .. ": " .. entity_name)
+							imgui.SameLine()
+							if not window_open then
+								if imgui.Button("Open##" .. entity._id) then
+									local window = {
+										window_id = window_id,
+										window_name = "Entity " .. entity._id .. " - " .. (entity._name or "Unnamed"),
+										entity = entity,
+										draw_window = module.EntityInspector,
+									}
+									table.insert(module.active_windows, window)
+								end
+							else
+								if imgui.Button("Close##" .. entity._id) then
+									for idx, win in ipairs(module.active_windows) do
+										if win.window_id == window_id then
+											table.remove(module.active_windows, idx)
+											break
+										end
+									end
+								end
+							end
+						elseif module.IsVector(value) then
                             local vec = { x = value.x or 0, y = value.y or 0, z = value.z }
                             local changed = false
                             if vec.z ~= nil then
-                                changed, vec.x, vec.y, vec.z = imgui.InputFloat3(key, vec.x, vec.y, vec.z)
+                                changed, vec.x, vec.y, vec.z = imgui.DragFloat3(key, vec.x, vec.y, vec.z)
                             else
-                                changed, vec.x, vec.y = imgui.InputFloat2(key, vec.x, vec.y)
+                                changed, vec.x, vec.y = imgui.DragFloat2(key, vec.x, vec.y)
                             end
                             if changed then
                                 value.x = vec.x

@@ -14,6 +14,7 @@ EntitySystem.networkLoadQueue = {}
 -- Entity creation function
 function EntitySystem.Create(name)
     local entity = {
+		is_entity = true,
         _id = EntitySystem.nextId,
 		_owner = steamutils.getSteamID(),
         _components = {

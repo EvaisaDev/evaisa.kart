@@ -68,6 +68,8 @@ function TrackSystem.Init()
         -- Calculate scale
         local track_img_id, track_tex_w, track_tex_h = ModImageMakeEditable(track.texture, 0, 0)
 
+		track.width, track.height = track_tex_w, track_tex_h
+
         -- Ensure color channels are correctly set up
         ModImageMakeEditable(track.oob_texture, 0, 0)
         ModImageMakeEditable(track.parallax_1_texture, 0, 0)
