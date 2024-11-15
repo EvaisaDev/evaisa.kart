@@ -274,7 +274,7 @@ component_definitions = {
                 if(RenderingSystem.texture_map[self.texture])then
                     -- check texture type
                     if(RenderingSystem.texture_map[self.texture].type == TextureTypes.billboard) then
-                        --RenderingSystem.RenderBillboard(RenderingSystem.new_id(), self.texture, entity.transform.position.x, entity.transform.position.y, entity.transform.position.z, 0.8)
+                        RenderingSystem.RenderBillboard(RenderingSystem.new_id(), self.texture, entity.transform.position.x, entity.transform.position.y, entity.transform.position.z, 0.8)
                     elseif(RenderingSystem.texture_map[self.texture].type == TextureTypes.directional_billboard) then
                         RenderingSystem.RenderDirectionalBillboard(RenderingSystem.new_id(), self.texture, entity.transform.position.x, entity.transform.position.y, entity.transform.position.z, entity.transform.rotation, 0.8)
                     end

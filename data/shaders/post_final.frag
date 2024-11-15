@@ -41,10 +41,6 @@ void main()
     // Rendering parallax background first
     float horizon = window_size.y - (window_size.y * horizonOffset);
     vec2 uv = tex_coord_;
-    vec2 myCoord = uv;
-    float cos_theta = cos(scaledCameraTransform.w);
-    float sin_theta = sin(scaledCameraTransform.w);
-    float epsilon = 0.0001;
 
     if (gl_FragCoord.y > horizon) {
         // Parallax rendering
@@ -88,14 +84,19 @@ void main()
         gl_FragColor = final;
 
     } else {
+
+		float cos_theta = cos(scaledCameraTransform.w);
+		float sin_theta = sin(scaledCameraTransform.w);
+		float epsilon = 0.0001;
+
         // Rendering map next
-        myCoord.x *= 256.0;
-        myCoord.y *= 224.0;
-        myCoord.x -= 128.0;
+        uv.x *= 256.0;
+        uv.y *= 224.0;
+        uv.x -= 128.0;
 
         vec2 rotatedCoord;
-        rotatedCoord.x = myCoord.x * cos_theta - myCoord.y * sin_theta;
-        rotatedCoord.y = myCoord.x * sin_theta + myCoord.y * cos_theta;
+        rotatedCoord.x = uv.x * cos_theta - uv.y * sin_theta;
+        rotatedCoord.y = uv.x * sin_theta + uv.y * cos_theta;
 
         float perspectiveFactor = (horizon - gl_FragCoord.y) / (cameraTransform.z + epsilon);
         rotatedCoord /= perspectiveFactor;

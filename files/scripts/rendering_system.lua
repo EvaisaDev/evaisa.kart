@@ -2,6 +2,8 @@ dofile("mods/evaisa.kart/files/scripts/camera_system.lua")
 dofile("mods/evaisa.kart/files/scripts/defs/textures.lua")
 dofile("mods/evaisa.kart/files/scripts/utilities.lua")
 
+local gui = GuiCreate()
+
 RenderingSystem = {
 	texture_types = {
 		billboard = 1,
@@ -13,6 +15,7 @@ RenderingSystem = {
 	horizonOffset = 0.5,
 	last_id = 4,
 	last_debug_id = 1352551,
+	render_offset_y = 0,
 }
 
 RenderingSystem.new_id = function()
@@ -75,9 +78,57 @@ function RenderingSystem.GenerateDirectionalTexture(uid, image_path, rotations, 
 	return path
 end
 
+-- Need to calculate world position to screen position based on the following shader code:
+--[[
+float horizon = window_size.y - (window_size.y * horizonOffset);
+// Camera Transform w = rotation
+float cos_theta = cos(cameraTransform.w);
+float sin_theta = sin(cameraTransform.w);
+float epsilon = 0.0001;
+
+// Resolution is 256x224
+uv.x *= 256.0;
+uv.y *= 224.0;
+uv.x -= 128.0;
+
+vec2 rotatedCoord;
+rotatedCoord.x = uv.x * cos_theta - uv.y * sin_theta;
+rotatedCoord.y = uv.x * sin_theta + uv.y * cos_theta;
+
+float perspectiveFactor = (horizon - gl_FragCoord.y) / (cameraTransform.z + epsilon);
+rotatedCoord /= perspectiveFactor;
+
+rotatedCoord.x += cameraTransform.x;
+rotatedCoord.y += cameraTransform.y;
+
+vec2 mapUV = rotatedCoord;
+mapUV.y = 1.0 - mapUV.y;
+]]
+local ffi = require("ffi")
+ffi.cdef([[
+typedef struct SDL_Window SDL_Window;
+SDL_Window* SDL_GL_GetCurrentWindow();
+int SDL_GetWindowSize(SDL_Window* window, int* w, int* h);
+]])
+
+SDL2 = ffi.load('SDL2.dll')
+
+local window = SDL2.SDL_GL_GetCurrentWindow()
+
+function GetWindowSize()
+	local w = ffi.new("int[1]")
+	local h = ffi.new("int[1]")
+	SDL2.SDL_GetWindowSize(window, w, h)
+	return w[0], h[0]
+end
+
+
 function RenderingSystem.worldToScreenUV(worldPos, cameraTransform)
 
-	local camera_x, camera_y, camera_w, camera_h = GameGetCameraBounds()
+    local window_width, window_height = GetWindowSize()
+
+	window_width = window_width * 0.25
+	window_height = window_height * 0.25
 
     -- Compute sine and cosine of the camera's rotation angle (cameraTransform.w)
     local cos_theta = math.cos(cameraTransform[4])
@@ -87,11 +138,11 @@ function RenderingSystem.worldToScreenUV(worldPos, cameraTransform)
     local epsilon = 0.0001
 
     -- Calculate the horizon position and offset in screen space
-    local horizon = camera_h - (camera_h * RenderingSystem.horizonOffset)
+    local horizon = window_height - (window_height * RenderingSystem.horizonOffset)
     
     -- The camera height plus epsilon to avoid precision issues
     local C = cameraTransform[3] + epsilon
-    local windowHeight = camera_h
+
 
     -- Compute the difference between the world position and the camera position
     local dx = worldPos[1] - cameraTransform[1]
@@ -99,7 +150,7 @@ function RenderingSystem.worldToScreenUV(worldPos, cameraTransform)
 
     -- A and B are factors used for perspective projection
     local A = horizon * 224.0
-    local B = C * 224 + (-sin_theta * dx + cos_theta * dy) * windowHeight
+    local B = C * 224 + (-sin_theta * dx + cos_theta * dy) * window_height
 
     -- Check if B is too small (to avoid division by zero); if so, return default UV coordinates (0, 0)
     if math.abs(B) < 1e-6 then
@@ -110,8 +161,10 @@ function RenderingSystem.worldToScreenUV(worldPos, cameraTransform)
     local P = A / B
 
     -- Compute texture coordinates based on the perspective factor and camera position
-    local tex_coord_y = (horizon - P * C) / windowHeight
+    local tex_coord_y = (horizon - P * C) / window_height
     local tex_coord_x = (128.0 + P * (cos_theta * dx + sin_theta * dy)) / 256.0
+
+	tex_coord_y = tex_coord_y - (RenderingSystem.render_offset_y * P)
 
     -- Return the calculated UV coordinates
     return {tex_coord_x, tex_coord_y, P}
@@ -119,7 +172,6 @@ end
 
 local renderedSprites = {}
 
-local gui = GuiCreate()
 
 function RenderingSystem.RenderDirectionalBillboard(id, texture, x, y, z, r, sprite_scale)
     -- Check if texture exists
