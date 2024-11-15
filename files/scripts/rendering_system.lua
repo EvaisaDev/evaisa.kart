@@ -16,6 +16,7 @@ RenderingSystem = {
 	last_id = 4,
 	last_debug_id = 1352551,
 	render_offset_y = 0,
+	debug_gizmos = false,
 }
 
 RenderingSystem.new_id = function()
@@ -455,6 +456,68 @@ function RenderingSystem.DrawLine(point1, point2, width, r, g, b, a)
     local offsetX = math.sin(angle) * (width / 2)
     local offsetY = math.cos(angle) * -(width / 2)
     GuiImage(gui, RenderingSystem.new_debug_id(), vec1.x + offsetX, vec1.y + offsetY, "mods/evaisa.kart/files/textures/1pixel.png", a, length, width, angle)
+end
+
+function RenderingSystem.DrawText(text, point, scale, center_horizontal, center_vertical, r, g, b, a, font, is_pixel_font)
+	r = r or 1
+	g = g or 1
+	b = b or 1
+	a = a or 1
+	scale = scale or 1
+
+	local uv = RenderingSystem.worldToScreenUV(
+		{point.x, point.y, point.z},
+		{
+			RenderingSystem.camera.position.x,
+			RenderingSystem.camera.position.y,
+			RenderingSystem.camera.position.z,
+			RenderingSystem.camera.rotation
+		}
+	)
+
+	local screen_width, screen_height = GuiGetScreenDimensions(gui)
+
+	local render_x = screen_width * uv[1]
+	local render_y = screen_height * (1.0 - uv[2])
+
+	-- scale text based on perspective factor
+	scale = scale * uv[3]
+
+	if(is_pixel_font == nil)then
+		is_pixel_font = true
+	end
+
+	local text_width, text_height
+
+	if font then
+		text_width, text_height = GuiGetTextDimensions(gui, tostring(text), scale, 2, font, is_pixel_font)
+	else
+		text_width, text_height = GuiGetTextDimensions(gui, tostring(text), scale, 2)
+	end
+
+	if center_horizontal then
+		render_x = render_x - (text_width / 2)
+	end
+
+	if center_vertical then
+		render_y = render_y - (text_height / 2)
+	end
+
+	-- offset Y based on Z position
+	render_y = render_y - (point.z * uv[3])
+
+	-- print out all the arguments for debugging
+	--print("text: "..text..", point: "..point.x..", "..point.y..", "..point.z..", scale: "..scale..", center_horizontal: "..tostring(center_horizontal)..", center_vertical: "..tostring(center_vertical)..", r: "..r..", g: "..g..", b: "..b..", a: "..a..", font: "..font..", is_pixel_font: "..tostring(is_pixel_font))
+
+
+	GuiColorSetForNextWidget(gui, r, g, b, a)
+
+	if font then
+		GuiText(gui, render_x, render_y, tostring(text), scale, font, is_pixel_font)
+	else
+		GuiText(gui, render_x, render_y, tostring(text), scale)
+	end
+
 end
 
 function RenderingSystem.GenerateTextures()

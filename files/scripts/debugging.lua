@@ -27,6 +27,10 @@ module.Draw = function()
                     module.ShowEntitiesTab()
                     imgui.EndTabItem()
                 end
+				if imgui.BeginTabItem("Debug") then
+					module.ShowDebugTab()
+					imgui.EndTabItem()
+				end
                 if imgui.BeginTabItem("Cheats") then
                     module.ShowCheatsTab()
                     imgui.EndTabItem()
@@ -265,6 +269,14 @@ module.ShowCameraTab = function()
 				imgui.Text(key .. ": " .. tostring(value))
 			end
 		end
+	end
+end
+
+module.ShowDebugTab = function()
+	-- draw checkbox for Debug Rendering
+	local changed, newValue = imgui.Checkbox("Debug Gizmos", RenderingSystem.debug_gizmos)
+	if changed then
+		RenderingSystem.debug_gizmos = newValue
 	end
 end
 

@@ -23,6 +23,7 @@ function EntitySystem.Create(name)
 		_name = name or ("Entity" .. EntitySystem.nextId),
 		_parent = nil,
 		_children = {},
+		--_tags = {},
 
 		Update = function(self, lobby)
 			-- update all components
@@ -54,7 +55,22 @@ function EntitySystem.Create(name)
 			if ComponentSystem[componentType] then
 				local component = ComponentSystem.CreateComponent(componentType)
 				for key, value in pairs(data or {}) do
-					component[key] = value
+					-- check if ends with _hook
+					if type(value) == "function" and key:sub(-5) == "_hook" then
+						local hook_name = key:sub(1, -6)
+
+						if component[hook_name] then
+							local old_hook = component[hook_name]
+							component[hook_name] = function(...)
+								value(old_hook, ...)
+							end
+						else
+							component[hook_name] = value
+						end
+						
+					else
+						component[key] = value
+					end
 				end
 				component._entity = self
 				table.insert(self._components, component)
@@ -182,7 +198,19 @@ function EntitySystem.Create(name)
 		end,
 		GetComponents = function(self)
 			return self._components
-		end
+		end,
+		--[[GetTags = function(self)
+			return self._tags
+		end,
+		HasTag = function(self, tag)
+			return self._tags[tag] or false
+		end,
+		AddTag = function(self, tag)
+			self._tags[tag] = true
+		end,
+		RemoveTag = function(self, tag)
+			self._tags[tag] = nil
+		end]]
 
     }
 
@@ -198,6 +226,9 @@ function EntitySystem.Load(entityData)
 	for _, componentData in ipairs(entityData.components) do
 		entity:AddComponent(componentData.type, componentData.data)
 	end
+	--[[for _, tag in ipairs(entityData.tags) do
+		entity._tags[tag] = true
+	end]]
 	return entity
 end
 

@@ -263,7 +263,7 @@ component_definitions = {
         name = "Sprite",
         default_data = {
             texture = nil,
-			debug = true,
+			debug = false,
             GetTexture = function(self)
                 return self.texture
             end,
@@ -281,13 +281,41 @@ component_definitions = {
                 end
 
 				-- draw debug cross for sprite
-				if self.debug then
+				if(RenderingSystem.debug_gizmos or self.debug)then
 					RenderingSystem.DrawLine(Vector3(entity.transform.position.x - 5, entity.transform.position.y, 0), Vector3(entity.transform.position.x + 5, entity.transform.position.y, 0), 0.5, 255, 0, 0)
 					RenderingSystem.DrawLine(Vector3(entity.transform.position.x, entity.transform.position.y - 5, 0), Vector3(entity.transform.position.x, entity.transform.position.y + 5, 0), 0.5, 255, 0, 0)
 				end
             end,
         }
     },
+	{
+		name = "Text",
+		default_data = {
+			offset_x = 0,
+			offset_y = 0,
+			offset_z = 0,
+			text = "",
+			font = nil,
+			is_pixel_font = nil,
+			size = 1,
+			color = {255, 255, 255, 255},
+			centered_x = true,
+			centered_y = true,
+			Update = function(self, entity, lobby)
+				local position = entity.transform.position:clone()
+				position.x = position.x + self.offset_x
+				position.y = position.y + self.offset_y
+				position.z = position.z + self.offset_z
+
+				local r = self.color[1] / 255
+				local g = self.color[2] / 255
+				local b = self.color[3] / 255
+				local a = self.color[4] / 255
+
+				RenderingSystem.DrawText(self.text, position, self.size, self.centered_x, self.centered_y, r, g, b, a, self.font, self.is_pixel_font)
+			end,
+		}
+	},
 	{
 		name = "Kart",
 		default_data = {
@@ -299,9 +327,9 @@ component_definitions = {
 				deceleration = 0.1,  -- Rate at which the kart should decelerate
 			},
 			ai_config = {
-				node_reach_threshold = 50,
-				node_random_offset = 40,
-				max_turn_speed = 0.1,  -- Slow down when making sharp turns
+				node_reach_threshold = 60,
+				node_random_offset = 15,
+				max_turn_speed = 0.8,
 			},
 			is_npc = false,
 			player_id = 0,
@@ -349,25 +377,27 @@ component_definitions = {
 			UpdateAIMovement = function(self, entity)
 				local track = TrackSystem.GetActiveTrack()
 				if not track then return end
-	
+			
 				local x = entity.transform.position.x
 				local y = entity.transform.position.y
-	
+			
+				SetRandomSeed(x + GameGetFrameNum(), y)
+			
 				-- If the AI doesn't have a current node, find the closest node to its position
 				if not self.current_node then
 					self.current_node = TrackSystem.FindClosestNode(x, y, TrackSystem.current_track)
-					self.current_offset_x = math.random(-self.ai_config.node_random_offset, self.ai_config.node_random_offset)
-					self.current_offset_y = math.random(-self.ai_config.node_random_offset, self.ai_config.node_random_offset)
+					self.current_offset_x = Random(-self.ai_config.node_random_offset, self.ai_config.node_random_offset)
+					self.current_offset_y = Random(-self.ai_config.node_random_offset, self.ai_config.node_random_offset)
 				end
-	
+			
 				local current_node = self.current_node
 				if not current_node then return end
-	
+			
 				-- Calculate direction to the current node
-				local dx = current_node.x - x
-				local dy = current_node.y - y
+				local dx = (current_node.x + self.current_offset_x) - x
+				local dy = (current_node.y + self.current_offset_y) - y
 				local distance_sq = dx * dx + dy * dy
-	
+			
 				-- Check if the AI has reached the current node
 				local reach_threshold_sq = self.ai_config.node_reach_threshold * self.ai_config.node_reach_threshold
 				if distance_sq < reach_threshold_sq then
@@ -375,10 +405,10 @@ component_definitions = {
 					local next_nodes = TrackSystem.GetNextNodes(current_node)
 					if #next_nodes > 0 then
 						-- Randomly select one of the next nodes
-						local random_index = math.random(1, #next_nodes)
+						local random_index = Random(1, #next_nodes)
 						self.current_node = next_nodes[random_index]
-						self.current_offset_x = math.random(-self.ai_config.node_random_offset, self.ai_config.node_random_offset)
-						self.current_offset_y = math.random(-self.ai_config.node_random_offset, self.ai_config.node_random_offset)
+						self.current_offset_x = Random(-self.ai_config.node_random_offset, self.ai_config.node_random_offset)
+						self.current_offset_y = Random(-self.ai_config.node_random_offset, self.ai_config.node_random_offset)
 					else
 						-- If no next nodes (end of path), loop back to the first node
 						self.current_node = track.nodes[1]
@@ -387,14 +417,14 @@ component_definitions = {
 					dx = (self.current_node.x + self.current_offset_x) - x
 					dy = (self.current_node.y + self.current_offset_y) - y
 				end
-	
+			
 				-- Calculate the desired rotation towards the current node
 				local desired_r = math.atan2(dy, dx) - math.pi / 2
-	
+			
 				-- Calculate angle difference
 				local angle_diff = desired_r - entity.transform.rotation
 				angle_diff = (angle_diff + math.pi) % (2 * math.pi) - math.pi  -- Normalize to [-π, π]
-	
+			
 				-- Smoothly adjust rotation
 				local rotation_speed = self.config.turn_speed
 				if math.abs(angle_diff) < rotation_speed then
@@ -406,39 +436,41 @@ component_definitions = {
 						entity.transform.rotation = entity.transform.rotation - rotation_speed
 					end
 				end
-	
+			
 				-- Ensure rotation stays within [0, 2π]
 				entity.transform.rotation = (entity.transform.rotation + 2 * math.pi) % (2 * math.pi)
-	
-				-- Adjust speed based on turn angle
-				local speed_multiplier = 1.0
-				if math.abs(angle_diff) > math.pi / 6 then  -- If the turn is sharper than 30 degrees
-					speed_multiplier = self.ai_config.max_turn_speed  -- Slow down significantly
-				end
-	
-				-- Accelerate in the direction the AI is facing, applying speed multiplier
+			
+				-- Determine velocity adjustment based on sharpness of turn and current speed
 				local velocityComponent = entity:GetComponentOfType("Velocity")
 				if not velocityComponent then return end
-	
-				velocityComponent.velocity.x = velocityComponent.velocity.x + math.cos(entity.transform.rotation + math.pi / 2) * self.config.acceleration * speed_multiplier
-				velocityComponent.velocity.y = velocityComponent.velocity.y + math.sin(entity.transform.rotation + math.pi / 2) * self.config.acceleration * speed_multiplier
-	
-				-- Check if the upcoming turn is sharp and decelerate accordingly
+			
 				local next_nodes = TrackSystem.GetNextNodes(current_node)
+				local adjusted_acceleration = self.config.acceleration
+			
 				if #next_nodes > 0 then
 					local next_node = next_nodes[1]
 					local future_dx = next_node.x - current_node.x
 					local future_dy = next_node.y - current_node.y
 					local future_angle = math.atan2(future_dy, future_dx) - math.pi / 2
 					local future_angle_diff = (future_angle - desired_r + math.pi) % (2 * math.pi) - math.pi
-	
-					-- Decelerate if the upcoming turn is sharp
-					if math.abs(future_angle_diff) > math.pi / 4 then  -- Threshold of 45 degrees
-						velocityComponent.velocity.x = velocityComponent.velocity.x * (1 - self.config.deceleration)
-						velocityComponent.velocity.y = velocityComponent.velocity.y * (1 - self.config.deceleration)
+			
+					-- Only slow down for sharp turns based on current speed and sharpness
+					local turn_sharpness = math.abs(future_angle_diff)
+					local max_sharpness = math.pi / 2  -- Define what is considered a "sharp turn"
+					local current_speed_sq = velocityComponent.velocity.x * velocityComponent.velocity.x + velocityComponent.velocity.y * velocityComponent.velocity.y
+					local max_speed_for_turn = self.ai_config.max_turn_speed
+			
+					if turn_sharpness > 0.3 and current_speed_sq > max_speed_for_turn * max_speed_for_turn then
+						local slow_down_factor = math.min(1, turn_sharpness / max_sharpness)
+						adjusted_acceleration = adjusted_acceleration * (1 - slow_down_factor)
 					end
 				end
+			
+				-- Apply adjusted velocity
+				velocityComponent.velocity.x = velocityComponent.velocity.x + math.cos(entity.transform.rotation + math.pi / 2) * adjusted_acceleration
+				velocityComponent.velocity.y = velocityComponent.velocity.y + math.sin(entity.transform.rotation + math.pi / 2) * adjusted_acceleration
 			end,
+			
 	
 			Update = function(self, entity, lobby)
 				local map = TrackSystem.GetActiveTrack()

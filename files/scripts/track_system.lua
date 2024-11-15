@@ -14,8 +14,6 @@ MaterialTypes = {
     out_of_bounds = 3,
 }
 
-local DEBUG = true
-
 function TrackSystem.CheckMaterial(x, y)
     if (TrackSystem.current_track == nil) then
         return false
@@ -513,7 +511,7 @@ end
 
 
 function TrackSystem.Update()
-	if DEBUG then
+	if(RenderingSystem.debug_gizmos)then
 		-- draw path entirely
 		local track = TrackSystem.track_map[TrackSystem.current_track]
 		if (track) then
