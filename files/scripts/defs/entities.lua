@@ -37,7 +37,7 @@ entity_definitions = {
 					text = "",
 					offset_z = 35,
 					Update_hook = function(orig, self, entity, lobby)
-						if(GameGetFrameNum() % 20 == 0 and not entity:GetComponentOfType("Kart").is_npc)then
+						if(GameGetFrameNum() % 20 == 0 and not entity:GetComponentOfType("Kart").is_npc and not self._entity:IsOwner())then
 							self.text = steam_utils.getTranslatedPersonaName(entity._owner)
 						end
 						orig(self, entity, lobby)

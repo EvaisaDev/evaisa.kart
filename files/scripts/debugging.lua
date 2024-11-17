@@ -8,12 +8,50 @@ local module = {
     active_windows = {},
     searchText = "",
     showChildEntities = false,
+	entityPickerActive = false,
 }
+
+local GetMousePos = function()
+    local input_manager = EntityGetWithName("mp_input_manager")
+    if(input_manager == nil or not EntityGetIsAlive(input_manager))then
+        input_manager = EntityLoad("mods/evaisa.mp/files/entities/input_manager.xml")
+    end
+
+    local b_width = tonumber(game_config.get("internal_size_w")) or 1280
+    local b_height = tonumber(game_config.get("internal_size_h")) or 720
+
+    local controls_component = EntityGetFirstComponentIncludingDisabled(input_manager, "ControlsComponent")
+    local mouse_raw_x, mouse_raw_y = ComponentGetValue2(controls_component, "mMousePositionRaw")
+    local mx, my = mouse_raw_x / b_width, mouse_raw_y / b_height
+
+    return mx, my
+end
 
 module.Update = function()
     if InputIsKeyJustDown(12) then -- F1
         module.open = not module.open
     end
+
+	if(module.entityPickerActive)then
+		local camera_transform = {
+			RenderingSystem.camera.position.x,
+			RenderingSystem.camera.position.y,
+			RenderingSystem.camera.position.z,
+			RenderingSystem.camera.rotation
+		}
+
+		local mouse_x, mouse_y = GetMousePos()
+
+		print("Mouse Pos: " .. tostring(mouse_x) .. ", " .. tostring(mouse_y))
+
+		local world_pos = RenderingSystem.screenUVToWorld(mouse_x, mouse_y, camera_transform)
+
+		local point = Vector3(world_pos[1], world_pos[2], 0)
+
+		print("World Pos: " .. tostring(point))
+		
+		RenderingSystem.DrawLine(point, Vector3(point.x, point.y, 5), 1, 1, 0, 0, 1)
+	end
 end
 
 module.Draw = function()
@@ -277,6 +315,11 @@ module.ShowDebugTab = function()
 	local changed, newValue = imgui.Checkbox("Debug Gizmos", RenderingSystem.debug_gizmos)
 	if changed then
 		RenderingSystem.debug_gizmos = newValue
+	end
+	-- entity picker checkbox
+	changed, newValue = imgui.Checkbox("Entity Picker", module.entityPickerActive)
+	if changed then
+		module.entityPickerActive = newValue
 	end
 end
 

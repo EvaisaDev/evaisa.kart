@@ -171,6 +171,44 @@ function RenderingSystem.worldToScreenUV(worldPos, cameraTransform)
     return {tex_coord_x, tex_coord_y, P}
 end
 
+function RenderingSystem.screenUVToWorld(x, y, cameraTransform)
+    local window_width, window_height = GetWindowSize()
+
+    window_width = window_width * 0.25
+    window_height = window_height * 0.25
+
+    -- Compute sine and cosine of the camera's rotation angle (cameraTransform.w)
+    local cos_theta = math.cos(cameraTransform[4])
+    local sin_theta = math.sin(cameraTransform[4])
+
+    -- Small value to avoid division by zero
+    local epsilon = 0.0001
+
+    -- Calculate the horizon position in screen space
+    local horizon = window_height - (window_height * RenderingSystem.horizonOffset)
+
+    -- The camera height plus epsilon to avoid precision issues
+    local C = cameraTransform[3] + epsilon
+
+    -- Recompute the perspective factor P from the screen UV y-coordinate
+    local P = (horizon - y * window_height) / C
+
+    -- Compute the world-space X and Y positions based on screen UV and perspective
+    local screen_x = (x * 256.0 - 128.0) / P
+    local screen_y = (horizon - y * window_height + RenderingSystem.render_offset_y * P) / P
+
+    -- Reverse the camera's rotation to map back to world coordinates
+    local dx = cos_theta * screen_x - sin_theta * screen_y
+    local dy = sin_theta * screen_x + cos_theta * screen_y
+
+    -- Add the camera's position to get the final world position
+    local world_x = cameraTransform[1] + dx
+    local world_y = cameraTransform[2] + dy
+
+    -- Return the calculated world position
+    return {world_x, world_y}
+end
+
 local renderedSprites = {}
 
 
@@ -202,19 +240,22 @@ function RenderingSystem.RenderDirectionalBillboard(id, texture, x, y, z, r, spr
 
     -- Create the sprite entity if it doesn't exist
     if(renderedSprites[id] == nil) then
-        renderedSprites[id] = EntityCreateNew("billboard_"..tostring(id))
-        local sprite_comp = EntityAddComponent2(renderedSprites[id], "SpriteComponent", {
+		renderedSprites[id] = {}
+        renderedSprites[id].entity = EntityCreateNew("billboard_"..tostring(id))
+        local sprite_comp = EntityAddComponent2(renderedSprites[id].entity, "SpriteComponent", {
             image_file = tex.path,
             rect_animation = "anim_0",
             smooth_filtering = false,
 			offset_x = tex.offset_x or 0,
 			offset_y = tex.offset_y or 0,
         })
-        EntityAddComponent2(renderedSprites[id], "SpriteAnimatorComponent")
+        EntityAddComponent2(renderedSprites[id].entity, "SpriteAnimatorComponent")
 		
     end
 
-    local sprite_comp = EntityGetFirstComponentIncludingDisabled(renderedSprites[id], "SpriteComponent")
+	renderedSprites[id].last_frame_rendered = GameGetFrameNum()
+
+    local sprite_comp = EntityGetFirstComponentIncludingDisabled(renderedSprites[id].entity, "SpriteComponent")
     if(sprite_comp ~= nil) then
         local image_file = ComponentGetValue2(sprite_comp, "image_file")
         if(image_file ~= tex.path) then
@@ -252,10 +293,10 @@ function RenderingSystem.RenderDirectionalBillboard(id, texture, x, y, z, r, spr
 		if dot < 0 then
 			-- behind camera
 			-- disable sprite component
-			EntitySetComponentIsEnabled(renderedSprites[id], sprite_comp, false)
+			EntitySetComponentIsEnabled(renderedSprites[id].entity, sprite_comp, false)
 			return
 		else
-			EntitySetComponentIsEnabled(renderedSprites[id], sprite_comp, true)
+			EntitySetComponentIsEnabled(renderedSprites[id].entity, sprite_comp, true)
 		end
 
 		local distance = Vector.new(x, y):distance(actual_camera_pos)
@@ -290,12 +331,12 @@ function RenderingSystem.RenderDirectionalBillboard(id, texture, x, y, z, r, spr
         -- Set the animation based on the calculated sprite index
         local anim_name = "anim_"..tostring(sprite_index)
         ComponentSetValue2(sprite_comp, "rect_animation", anim_name)
-        GamePlayAnimation(renderedSprites[id], anim_name, 0)
+        GamePlayAnimation(renderedSprites[id].entity, anim_name, 0)
 
 		-- set Z index of sprite component based on distance
 		ComponentSetValue2(sprite_comp, "z_index", math.floor(distance))
 
-		EntityRefreshSprite(renderedSprites[id], sprite_comp)
+		EntityRefreshSprite(renderedSprites[id].entity, sprite_comp)
 
         -- Calculate scale based on perspective factor and sprite scale
         local P = uv[3]
@@ -305,9 +346,9 @@ function RenderingSystem.RenderDirectionalBillboard(id, texture, x, y, z, r, spr
         render_y = render_y - (z * P)
 		
         -- Apply transformation and mirror if necessary
-        EntitySetTransform(renderedSprites[id], render_x, render_y, 0, drawScale.x * mirror, drawScale.y)
+        EntitySetTransform(renderedSprites[id].entity, render_x, render_y, 0, drawScale.x * mirror, drawScale.y)
     else
-        print("SpriteComponent not found for sprite ID:", renderedSprites[id])
+        print("SpriteComponent not found for sprite ID:", renderedSprites[id].entity)
     end
 end
 
@@ -350,19 +391,22 @@ function RenderingSystem.RenderBillboard(id, texture, x, y, z, sprite_scale)
 
     -- Create the sprite entity if it doesn't exist
     if(renderedSprites[id] == nil) then
-        renderedSprites[id] = EntityCreateNew("billboard_"..tostring(id))
-        local sprite_comp = EntityAddComponent2(renderedSprites[id], "SpriteComponent", {
+		renderedSprites[id] = {last_frame_rendered = GameGetFrameNum()}
+        renderedSprites[id].entity = EntityCreateNew("billboard_"..tostring(id))
+        local sprite_comp = EntityAddComponent2(renderedSprites[id].entity, "SpriteComponent", {
             image_file = tex.path,
             rect_animation = "anim_0",
             smooth_filtering = false,
 			offset_x = tex.offset_x or 0,
 			offset_y = tex.offset_y or 0,
         })
-        EntityAddComponent2(renderedSprites[id], "SpriteAnimatorComponent")
+        EntityAddComponent2(renderedSprites[id].entity, "SpriteAnimatorComponent")
 		
     end
 
-    local sprite_comp = EntityGetFirstComponentIncludingDisabled(renderedSprites[id], "SpriteComponent")
+	renderedSprites[id].last_frame_rendered = GameGetFrameNum()
+
+    local sprite_comp = EntityGetFirstComponentIncludingDisabled(renderedSprites[id].entity, "SpriteComponent")
     if(sprite_comp ~= nil) then
         local image_file = ComponentGetValue2(sprite_comp, "image_file")
         if(image_file ~= tex.path) then
@@ -380,10 +424,10 @@ function RenderingSystem.RenderBillboard(id, texture, x, y, z, sprite_scale)
 		if dot < 0 then
 			-- behind camera
 			-- disable sprite component
-			EntitySetComponentIsEnabled(renderedSprites[id], sprite_comp, false)
+			EntitySetComponentIsEnabled(renderedSprites[id].entity, sprite_comp, false)
 			return
 		else
-			EntitySetComponentIsEnabled(renderedSprites[id], sprite_comp, true)
+			EntitySetComponentIsEnabled(renderedSprites[id].entity, sprite_comp, true)
 		end
 
 		local distance = Vector.new(x, y):distance(actual_camera_pos)
@@ -395,7 +439,7 @@ function RenderingSystem.RenderBillboard(id, texture, x, y, z, sprite_scale)
 		-- set Z index of sprite component based on distance
 		ComponentSetValue2(sprite_comp, "z_index", math.floor(distance))
 
-		EntityRefreshSprite(renderedSprites[id], sprite_comp)
+		EntityRefreshSprite(renderedSprites[id].entity, sprite_comp)
 
         -- Calculate scale based on perspective factor and sprite scale
         local P = uv[3]
@@ -405,9 +449,9 @@ function RenderingSystem.RenderBillboard(id, texture, x, y, z, sprite_scale)
         render_y = render_y - (z * P)
 		
         -- Apply transformation and mirror if necessary
-        EntitySetTransform(renderedSprites[id], render_x, render_y, 0, drawScale.x, drawScale.y)
+        EntitySetTransform(renderedSprites[id].entity, render_x, render_y, 0, drawScale.x, drawScale.y)
     else
-        print("SpriteComponent not found for sprite ID:", renderedSprites[id])
+        print("SpriteComponent not found for sprite ID:", renderedSprites[id].entity)
     end
 end
 
@@ -542,6 +586,14 @@ function RenderingSystem.Update()
 	RenderingSystem.last_id = 4
 	RenderingSystem.last_debug_id = 1352551
 	GuiStartFrame(gui)
+
+	-- garbage collection
+	for id, entity in pairs(renderedSprites) do
+		if entity.last_frame_rendered and entity.last_frame_rendered < GameGetFrameNum() - 5 then
+			EntityKill(entity.entity)
+			renderedSprites[id] = nil
+		end
+	end
 end
 
 function RenderingSystem.Reset()

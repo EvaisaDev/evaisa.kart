@@ -1,6 +1,7 @@
 -- Add this at the top if not already included
 dofile("mods/evaisa.kart/files/scripts/defs/tracks.lua")
 dofile("mods/evaisa.kart/files/scripts/utilities.lua")
+local Polygons = dofile("mods/evaisa.kart/files/scripts/polygons.lua")
 
 TrackSystem = {
     current_track = nil,
@@ -143,6 +144,8 @@ function TrackSystem.Init()
         local texture_scale_x = track_tex_w / w
         local texture_scale_y = track_tex_h / h
 
+		print(texture_scale_x, texture_scale_y)
+
         -- Collect all unique red values present in the image
         local red_values = {}
 
@@ -162,10 +165,13 @@ function TrackSystem.Init()
         end
         table.sort(red_values_list, function(a, b) return a > b end)
 
+		
+
         track.checkpoint_zones = {}
 
         for index, red_value in ipairs(red_values_list) do
             local zone_pixel_map = {}
+			local pixels = {}
             local pixel_count = 0
 
             for y = 0, h - 1 do
@@ -180,16 +186,22 @@ function TrackSystem.Init()
 
                         -- Mark the pixel as part of the zone
                         zone_pixel_map[map_y][map_x] = true
+						table.insert(pixels, {x = map_x, y = map_y})
                         pixel_count = pixel_count + 1
                     end
                 end
             end
 
             if pixel_count > 0 then
+
+				local polygons = Polygons.extractPolygons(pixels, 2)
+				
                 local zone = {
                     index = index,
                     red_value = red_value,
-                    pixel_map = zone_pixel_map
+                    pixel_map = zone_pixel_map,
+					polygons = polygons,
+					scale = {x = texture_scale_x, y = texture_scale_y}
                 }
 
                 table.insert(track.checkpoint_zones, zone)
@@ -533,6 +545,25 @@ function TrackSystem.Update()
 			draw_node_connections(first_node)
 		end
 		
+	end
+end
+
+function TrackSystem.DrawCheckpoint(checkpoint_index)
+	local track = TrackSystem.track_map[TrackSystem.current_track]
+	if (track == nil) then
+		return
+	end
+
+	local zone = track.checkpoint_zones[checkpoint_index]
+	
+	if zone then
+		for _, polygon in ipairs(zone.polygons) do
+			for i = 1, #polygon do
+				local p1 = polygon[i]
+				local p2 = polygon[i % #polygon + 1]
+				RenderingSystem.DrawLine(Vector3(p1.x * zone.scale.x, p1.y * zone.scale.y, 0), Vector3(p2.x * zone.scale.x, p2.y * zone.scale.y, 0), 0.5, 0, 0.4, 1, 1)
+			end
+		end
 	end
 end
 

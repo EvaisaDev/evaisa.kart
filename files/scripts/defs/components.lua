@@ -334,6 +334,7 @@ component_definitions = {
 			is_npc = false,
 			player_id = 0,
 			current_node = nil,         -- The current node the AI is moving towards
+			next_checkpoint = 1,     
 	
 			PlayerMovement = function(self, entity)
 				-- Get the input keys
@@ -486,9 +487,23 @@ component_definitions = {
 	
 					-- Follow camera
 					CameraSystem.target_entity = entity
+					if(RenderingSystem.debug_gizmos)then
+						-- track checkpoints
+						TrackSystem.DrawCheckpoint(self.next_checkpoint)
+					end
 				end
 	
-				-- Remove checkpoint handling since we're not using checkpoints
+				
+
+				-- Check if the kart has passed a checkpoint
+				if(TrackSystem.CheckCheckpoint(x, y, self.next_checkpoint))then
+					self.next_checkpoint = self.next_checkpoint + 1
+					if self.next_checkpoint > #map.checkpoint_zones then
+						self.next_checkpoint = 1
+					end
+				end
+
+				
 	
 				local material = TrackSystem.CheckMaterial(x, y)
 				local velocityComponent = entity:GetComponentOfType("Velocity")
