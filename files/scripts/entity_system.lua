@@ -11,6 +11,20 @@ EntitySystem.nextNetworkId = 1
 EntitySystem.uidMap = {}
 EntitySystem.networkLoadQueue = {}
 
+-- helper
+local function MergeTables(dest, src)
+    for k, v in pairs(src) do
+        if type(v) == "table" then
+            if type(dest[k]) ~= "table" then
+                dest[k] = {}
+            end
+            MergeTables(dest[k], v)
+        else
+            dest[k] = v
+        end
+    end
+end
+
 -- Entity creation function
 function EntitySystem.Create(name)
     local entity = {
@@ -55,10 +69,10 @@ function EntitySystem.Create(name)
 			if ComponentSystem[componentType] then
 				local component = ComponentSystem.CreateComponent(componentType)
 				for key, value in pairs(data or {}) do
-					-- check if ends with _hook
+					-- Check if the key ends with _hook
 					if type(value) == "function" and key:sub(-5) == "_hook" then
 						local hook_name = key:sub(1, -6)
-
+		
 						if component[hook_name] then
 							local old_hook = component[hook_name]
 							component[hook_name] = function(...)
@@ -67,9 +81,16 @@ function EntitySystem.Create(name)
 						else
 							component[hook_name] = value
 						end
-						
+		
 					else
-						component[key] = value
+						if type(value) == "table" then
+							if type(component[key]) ~= "table" then
+								component[key] = {}
+							end
+							MergeTables(component[key], value)
+						else
+							component[key] = value
+						end
 					end
 				end
 				component._entity = self
@@ -90,19 +111,19 @@ function EntitySystem.Create(name)
 		end,
 
 		-- Remove all components of type
-		RemoveComponentsOfType = function(self, componentType)
+		RemoveComponentsOfType = function(self, componentType, tag)
 			for i = #self._components, 1, -1 do
-				if self._components[i]._type == componentType then
+				if self._components[i]._type == componentType and (tag == nil or component.tags[tag]) then
 					table.remove(self._components, i)
 				end
 			end
 		end,
 
 		-- Get a components of type
-		GetComponentsOfType = function(self, componentType)
+		GetComponentsOfType = function(self, componentType, tag)
 			local components = {}
 			for _, component in ipairs(self._components) do
-				if component._type == componentType then
+				if component._type == componentType and (tag == nil or component.tags[tag]) then
 					table.insert(components, component)
 				end
 			end
@@ -110,9 +131,29 @@ function EntitySystem.Create(name)
 		end,
 
 		-- Get first component of type
-		GetComponentOfType = function(self, componentType)
+		GetComponentOfType = function(self, componentType, tag)
 			for _, component in ipairs(self._components) do
-				if component._type == componentType then
+				if component._type == componentType and (tag == nil or component.tags[tag]) then
+					return component
+				end
+			end
+			return nil
+		end,
+
+		GetComponentsWithTag = function(self, tag)
+			local components = {}
+			for _, component in ipairs(self._components) do
+				if component.tags[tag] then
+					table.insert(components, component)
+				end
+			end
+			return components
+		end,
+
+		-- Get first component with tag
+		GetComponentWithTag = function(self, tag)
+			for _, component in ipairs(self._components) do
+				if component.tags[tag] then
 					return component
 				end
 			end

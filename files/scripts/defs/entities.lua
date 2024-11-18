@@ -44,6 +44,46 @@ entity_definitions = {
 						
 					end
 				}
+			},
+			{
+				type = "ParticleEmitter",
+				data = {
+					tags = {
+						tire_smoke = true
+					},
+					emitter_data = {
+						["velocity_min_y"] = -0.5,
+						["rotation"] = 0,
+						["velocity_max_x"] = 0.5,
+						["sprite_random_rotation"] = true,
+						["rotation_speed"] = 0,
+						["count_min"] = 1,
+						["lifetime_max"] = 30,
+						["velocity_min_z"] = 0.30000001192093,
+						["lifetime_min"] = 20,
+						["alpha_over_lifetime"] = true,
+						["max_offset_x"] = 1,
+						["scale_min"] = 0.20000000298023,
+						["emitting"] = false,
+						["spawn_in_sphere"] = false,
+						["texture"] = "smoke",
+						["min_offset_z"] = 0,
+						["max_offset_y"] = 1,
+						["count_max"] = 1,
+						["min_offset_x"] = -1,
+						["interval_min_frames"] = 0,
+						["velocity_min_x"] = -0.5,
+						["velocity_max_z"] = 0.20000000298023,
+						["scale_max"] = 1,
+						["use_velocity_as_rotation"] = true,
+						["sphere_min_radius"] = 0,
+						["interval_max_frames"] = 0,
+						["sphere_max_radius"] = 10,
+						["velocity_max_y"] = 0.5,
+						["min_offset_y"] = -1,
+						["max_offset_z"] = 0,
+					},
+				}
 			}
 		}
 	},

@@ -264,6 +264,7 @@ component_definitions = {
         default_data = {
             texture = nil,
 			debug = false,
+			sprite_id = nil,
             GetTexture = function(self)
                 return self.texture
             end,
@@ -271,12 +272,17 @@ component_definitions = {
                 self.texture = texture
             end,
             Update = function(self, entity, lobby)
+
+				if self.sprite_id == nil then
+					self.sprite_id = RenderingSystem.new_id()
+				end
+
                 if(RenderingSystem.texture_map[self.texture])then
                     -- check texture type
                     if(RenderingSystem.texture_map[self.texture].type == TextureTypes.billboard) then
-                        RenderingSystem.RenderBillboard(RenderingSystem.new_id(), self.texture, entity.transform.position.x, entity.transform.position.y, entity.transform.position.z, 0.8)
+                        RenderingSystem.RenderBillboard(self.sprite_id, self.texture, entity.transform.position.x, entity.transform.position.y, entity.transform.position.z, 0.8)
                     elseif(RenderingSystem.texture_map[self.texture].type == TextureTypes.directional_billboard) then
-                        RenderingSystem.RenderDirectionalBillboard(RenderingSystem.new_id(), self.texture, entity.transform.position.x, entity.transform.position.y, entity.transform.position.z, entity.transform.rotation, 0.8)
+                        RenderingSystem.RenderDirectionalBillboard(self.sprite_id, self.texture, entity.transform.position.x, entity.transform.position.y, entity.transform.position.z, entity.transform.rotation, 0.8)
                     end
                 end
 
@@ -335,6 +341,7 @@ component_definitions = {
 			player_id = 0,
 			current_node = nil,         -- The current node the AI is moving towards
 			next_checkpoint = 1,     
+			last_rotation = 0,
 	
 			PlayerMovement = function(self, entity)
 				-- Get the input keys
@@ -502,6 +509,7 @@ component_definitions = {
 						self.next_checkpoint = 1
 					end
 				end
+				
 
 				
 	
@@ -513,8 +521,52 @@ component_definitions = {
 						velocityComponent.velocity.y = velocityComponent.velocity.y * self.config.slow_mult
 					end
 				end
+
+				if(material == MaterialTypes.default)then
+					-- check if going fast and turning, if so, find ParticleEmitter component with tire_smoke tag enable it, otherwise disable it
+					if(velocityComponent)then
+						local speed = velocityComponent.velocity:len()
+						if(speed > 3 and self.last_rotation ~= entity.transform.rotation)then
+							local emitters = entity:GetComponentsOfType("ParticleEmitter", "tire_smoke")
+							for _, emitter in ipairs(emitters) do
+								emitter:Burst(1)
+							end
+						end
+					end
+				end
+
+				self.last_rotation = entity.transform.rotation
 			end,
 		}
-	}
+	},
+	{
+        name = "ParticleEmitter",
+        default_data = {
+			burst_time = -1,
+			emitter_id = nil,
+			emitter_data = {},
+			Burst = function(self, time)
+				self.burst_time = time
+			end,
+			SetActive = function(self, active)
+				self.emitter_data.emitting = active
+			end,
+            Update = function(self, entity, lobby)
+				if(self.burst_time > 0)then
+					self.emitter_data.emitting = true
+					self.burst_time = self.burst_time - 1
+				elseif self.burst_time == 0 then
+					self.emitter_data.emitting = false
+					self.burst_time = -1
+				end
+
+				if(self.emitter_id == nil)then
+					self.emitter_id = RenderingSystem.get_emitter_id()
+				end
+
+				RenderingSystem.UpdateEmitter(self.emitter_id, self.emitter_data, entity.transform.position.x, entity.transform.position.y, entity.transform.position.z)
+            end,
+        }
+    },
 
 }

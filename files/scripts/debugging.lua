@@ -727,54 +727,98 @@ module.IsVector = function(value)
     return false
 end
 
--- Recursive function to draw tables
-module.DrawTable = function(tbl)
+module.SerializeTable = function(tbl, indent)
+    indent = indent or 0
+    local formatting = string.rep("    ", indent)
+    local result = "{\n"
+    for k, v in pairs(tbl) do
+        local key
+        if type(k) == "string" then
+            key = string.format("[\"%s\"]", k)
+        else
+            key = string.format("[%s]", tostring(k))
+        end
+
+        if type(v) == "table" then
+            result = result .. formatting .. "    " .. key .. " = " .. module.SerializeTable(v, indent + 1) .. ",\n"
+        elseif type(v) == "string" then
+            result = result .. formatting .. "    " .. key .. " = \"" .. v .. "\",\n"
+        elseif type(v) == "number" or type(v) == "boolean" then
+            result = result .. formatting .. "    " .. key .. " = " .. tostring(v) .. ",\n"
+        else
+            result = result .. formatting .. "    " .. key .. " = \"<unsupported type>\",\n"
+        end
+    end
+    result = result .. formatting .. "}"
+    return result
+end
+
+module.DrawTable = function(tbl, depth)
+    depth = depth or 0
+
+    local keys = {}
     for key, value in pairs(tbl) do
         if type(value) ~= "function" and string.sub(key, 1, 1) ~= "_" then
-            local valueType = type(value)
-            if valueType == "number" then
-                local changed, newValue = imgui.InputFloat(key, value)
-                if changed then
-                    tbl[key] = newValue
-                end
-            elseif valueType == "string" then
-                local changed, newValue = imgui.InputText(key, value)
-                if changed then
-                    tbl[key] = newValue
-                end
-            elseif valueType == "boolean" then
-                local changed, newValue = imgui.Checkbox(key, value)
-                if changed then
-                    tbl[key] = newValue
-                end
-            elseif valueType == "table" then
-                if module.IsVector(value) then
-                    local vec = { x = value.x or 0, y = value.y or 0, z = value.z }
-                    local changed = false
-                    if vec.z ~= nil then
-                        changed, vec.x, vec.y, vec.z = imgui.InputFloat3(key, vec.x, vec.y, vec.z)
-                    else
-                        changed, vec.x, vec.y = imgui.InputFloat2(key, vec.x, vec.y)
-                    end
-                    if changed then
-                        value.x = vec.x
-                        value.y = vec.y
-                        if vec.z ~= nil then
-                            value.z = vec.z
-                        end
-                    end
+            table.insert(keys, key)
+        end
+    end
+
+    table.sort(keys)
+
+    for _, key in ipairs(keys) do
+        local value = tbl[key]
+        local valueType = type(value)
+        if valueType == "number" then
+            local changed, newValue = imgui.DragFloat(key, value)
+            if changed then
+                tbl[key] = newValue
+            end
+        elseif valueType == "string" then
+            local changed, newValue = imgui.InputText(key, value)
+            if changed then
+                tbl[key] = newValue
+            end
+        elseif valueType == "boolean" then
+            local changed, newValue = imgui.Checkbox(key, value)
+            if changed then
+                tbl[key] = newValue
+            end
+        elseif valueType == "table" then
+            if module.IsVector(value) then
+                local vec = { x = value.x or 0, y = value.y or 0, z = value.z }
+                local changed = false
+                if vec.z ~= nil then
+                    changed, vec.x, vec.y, vec.z = imgui.DragFloat3(key, vec.x, vec.y, vec.z)
                 else
-                    if imgui.TreeNode(key .. "##" .. tostring(value)) then
-                        module.DrawTable(value)
-                        imgui.TreePop()
+                    changed, vec.x, vec.y = imgui.DragFloat2(key, vec.x, vec.y)
+                end
+                if changed then
+                    value.x = vec.x
+                    value.y = vec.y
+                    if vec.z ~= nil then
+                        value.z = vec.z
                     end
                 end
             else
-                imgui.Text(key .. ": " .. tostring(value))
+                if imgui.TreeNode(key .. "##" .. tostring(value)) then
+                    module.DrawTable(value, depth + 1)
+                    imgui.TreePop()
+                end
             end
+        else
+            imgui.Text(key .. ": " .. tostring(value))
+        end
+    end
+
+    if depth == 0 then
+        if imgui.Button("Export Table") then
+            local luaText = module.SerializeTable(tbl)
+            steam.utils.setClipboard(luaText)
         end
     end
 end
+
+
 
 module.ShowCheatsTab = function()
     if imgui.Button("WIP") then

@@ -14,19 +14,26 @@ RenderingSystem = {
 	camera = CameraSystem,
 	horizonOffset = 0.5,
 	last_id = 4,
-	last_debug_id = 1352551,
 	render_offset_y = 0,
 	debug_gizmos = false,
+	emitter_id = 0,
+	emitters = {},
+	render_pools = {}
 }
+--local renderedSprites = {}
+
+RenderingSystem.reset_id = function()
+	RenderingSystem.last_id = 4
+end
 
 RenderingSystem.new_id = function()
 	RenderingSystem.last_id = RenderingSystem.last_id + 1
 	return RenderingSystem.last_id
 end
 
-RenderingSystem.new_debug_id = function()
-	RenderingSystem.last_debug_id = RenderingSystem.last_debug_id + 1
-	return RenderingSystem.last_debug_id
+RenderingSystem.get_emitter_id = function()
+	RenderingSystem.emitter_id = RenderingSystem.emitter_id + 1
+	return RenderingSystem.emitter_id
 end
 
 local texture_types = {
@@ -209,10 +216,9 @@ function RenderingSystem.screenUVToWorld(x, y, cameraTransform)
     return {world_x, world_y}
 end
 
-local renderedSprites = {}
 
 
-function RenderingSystem.RenderDirectionalBillboard(id, texture, x, y, z, r, sprite_scale)
+function RenderingSystem.RenderDirectionalBillboard(id, texture, x, y, z, r, sprite_scale, sprite_rotation, alpha)
     -- Check if texture exists
     if(RenderingSystem.texture_map[texture] == nil or (RenderingSystem.texture_map[texture].path == nil and RenderingSystem.texture_map[texture].defs == nil)) then
         print("Texture is missing or invalid for texture ID:", texture)
@@ -238,6 +244,12 @@ function RenderingSystem.RenderDirectionalBillboard(id, texture, x, y, z, r, spr
 
     local tex = RenderingSystem.texture_map[texture]
 
+	if(RenderingSystem.render_pools[texture] == nil) then
+		RenderingSystem.render_pools[texture] = {}
+	end
+
+	local renderedSprites = RenderingSystem.render_pools[texture]
+
     -- Create the sprite entity if it doesn't exist
     if(renderedSprites[id] == nil) then
 		renderedSprites[id] = {}
@@ -248,6 +260,7 @@ function RenderingSystem.RenderDirectionalBillboard(id, texture, x, y, z, r, spr
             smooth_filtering = false,
 			offset_x = tex.offset_x or 0,
 			offset_y = tex.offset_y or 0,
+			alpha = alpha or 1,
         })
         EntityAddComponent2(renderedSprites[id].entity, "SpriteAnimatorComponent")
 		
@@ -346,14 +359,14 @@ function RenderingSystem.RenderDirectionalBillboard(id, texture, x, y, z, r, spr
         render_y = render_y - (z * P)
 		
         -- Apply transformation and mirror if necessary
-        EntitySetTransform(renderedSprites[id].entity, render_x, render_y, 0, drawScale.x * mirror, drawScale.y)
+        EntitySetTransform(renderedSprites[id].entity, render_x, render_y, sprite_rotation or 0, drawScale.x * mirror, drawScale.y)
     else
         print("SpriteComponent not found for sprite ID:", renderedSprites[id].entity)
     end
 end
 
 -- billboard without rotation
-function RenderingSystem.RenderBillboard(id, texture, x, y, z, sprite_scale)
+function RenderingSystem.RenderBillboard(id, texture, x, y, z, sprite_scale, sprite_rotation, alpha)
     -- Check if texture exists
     if(RenderingSystem.texture_map[texture] == nil or (RenderingSystem.texture_map[texture].path == nil and RenderingSystem.texture_map[texture].defs == nil)) then
         print("Texture is missing or invalid for texture ID:", texture)
@@ -389,6 +402,13 @@ function RenderingSystem.RenderBillboard(id, texture, x, y, z, sprite_scale)
 
     local tex = RenderingSystem.texture_map[texture]
 
+	if(RenderingSystem.render_pools[texture] == nil) then
+		RenderingSystem.render_pools[texture] = {}
+	end
+
+	local renderedSprites = RenderingSystem.render_pools[texture]
+
+
     -- Create the sprite entity if it doesn't exist
     if(renderedSprites[id] == nil) then
 		renderedSprites[id] = {last_frame_rendered = GameGetFrameNum()}
@@ -399,6 +419,7 @@ function RenderingSystem.RenderBillboard(id, texture, x, y, z, sprite_scale)
             smooth_filtering = false,
 			offset_x = tex.offset_x or 0,
 			offset_y = tex.offset_y or 0,
+			alpha = alpha or 1,
         })
         EntityAddComponent2(renderedSprites[id].entity, "SpriteAnimatorComponent")
 		
@@ -449,11 +470,230 @@ function RenderingSystem.RenderBillboard(id, texture, x, y, z, sprite_scale)
         render_y = render_y - (z * P)
 		
         -- Apply transformation and mirror if necessary
-        EntitySetTransform(renderedSprites[id].entity, render_x, render_y, 0, drawScale.x, drawScale.y)
+        EntitySetTransform(renderedSprites[id].entity, render_x, render_y, sprite_rotation or 0, drawScale.x, drawScale.y)
     else
         print("SpriteComponent not found for sprite ID:", renderedSprites[id].entity)
     end
 end
+
+
+function RenderingSystem.UpdateEmitter(id, emitter_data, x, y, z)
+    local default = {
+        emitting = true,
+        texture = "smoke",
+        sprite_random_rotation = true,
+        lifetime_min = 20,
+        lifetime_max = 30,
+        rotation = 0,
+        rotation_speed = 0,
+        use_velocity_as_rotation = false,
+        alpha_over_lifetime = true,
+        count_min = 1,
+        count_max = 1,
+        interval_min_frames = 5,
+        interval_max_frames = 5,
+        velocity_min_x = -1,
+        velocity_max_x = 1,
+        velocity_min_y = -1,
+        velocity_max_y = 1,
+        velocity_min_z = -1,
+        velocity_max_z = 1,
+        scale_min = 1,
+        scale_max = 1,
+        min_offset_x = 0,
+        max_offset_x = 0,
+        min_offset_y = 0,
+        max_offset_y = 0,
+        min_offset_z = 0,
+        max_offset_z = 0,
+        spawn_in_sphere = false,
+        sphere_min_radius = 0,
+        sphere_max_radius = 10,
+    }
+
+    -- Merge default values with emitter_data
+    for k, v in pairs(default) do
+        if emitter_data[k] == nil then
+            emitter_data[k] = v
+        end
+    end
+
+    local emitter = RenderingSystem.emitters[id]
+
+    -- If the emitter doesn't exist, create it
+    if emitter == nil then
+        emitter = {
+            particles = {},
+            last_emit_time = 0,
+            data = emitter_data,
+            position = { x = x, y = y, z = z },
+            rotation = emitter_data.rotation or 0,
+            rotation_speed = emitter_data.rotation_speed or 0,
+            emitting = emitter_data.emitting ~= false,
+        }
+        RenderingSystem.emitters[id] = emitter
+    else
+        -- Update emitter data to reflect any changes
+        emitter.data = emitter_data
+        emitter.position = { x = x or emitter.position.x, y = y or emitter.position.y, z = z or emitter.position.z }
+        emitter.rotation_speed = emitter.data.rotation_speed or 0
+        emitter.emitting = emitter_data.emitting ~= false
+    end
+end
+
+function RenderingSystem.UpdateEmitters()
+    for id, emitter in pairs(RenderingSystem.emitters) do
+        -- Update emitter rotation
+        emitter.rotation = emitter.rotation + (emitter.rotation_speed or 0)
+
+        -- Set the random seed for consistent randomness per frame
+        SetRandomSeed(GameGetFrameNum(), id)
+
+        local function random_float(min, max)
+            return min + (max - min) * Random()
+        end
+
+        -- Particle emission
+        if emitter.emitting == true then
+            local current_frame = GameGetFrameNum()
+            local interval_min = emitter.data.interval_min_frames or 1
+            local interval_max = emitter.data.interval_max_frames or 1
+            local interval = Random(interval_min, interval_max)
+
+            if current_frame - emitter.last_emit_time >= interval then
+                -- Emit particles
+                local count_min = emitter.data.count_min or 1
+                local count_max = emitter.data.count_max or 1
+                local particle_count = Random(count_min, count_max)
+
+                for i = 1, particle_count do
+                    -- Create particle
+                    local particle_id = RenderingSystem.new_id()
+                    local lifetime = Random(emitter.data.lifetime_min or 30, emitter.data.lifetime_max or 60)
+
+                    -- Determine initial position offsets
+                    local offset_x = random_float(emitter.data.min_offset_x or 0, emitter.data.max_offset_x or 0)
+                    local offset_y = random_float(emitter.data.min_offset_y or 0, emitter.data.max_offset_y or 0)
+                    local offset_z = random_float(emitter.data.min_offset_z or 0, emitter.data.max_offset_z or 0)
+
+                    -- Apply emitter rotation to the offsets
+                    local angle = emitter.rotation
+                    local cos_angle = math.cos(angle)
+                    local sin_angle = math.sin(angle)
+                    local rotated_offset_x = offset_x * cos_angle - offset_y * sin_angle
+                    local rotated_offset_y = offset_x * sin_angle + offset_y * cos_angle
+
+                    local position = {
+                        x = emitter.position.x + rotated_offset_x,
+                        y = emitter.position.y + rotated_offset_y,
+                        z = emitter.position.z + offset_z,
+                    }
+
+                    -- Determine velocity
+                    local velocity_x = random_float(emitter.data.velocity_min_x or 0, emitter.data.velocity_max_x or 0)
+                    local velocity_y = random_float(emitter.data.velocity_min_y or 0, emitter.data.velocity_max_y or 0)
+                    local velocity_z = random_float(emitter.data.velocity_min_z or 0, emitter.data.velocity_max_z or 0)
+
+                    -- Apply emitter rotation to the velocity
+                    local rotated_velocity_x = velocity_x * cos_angle - velocity_y * sin_angle
+                    local rotated_velocity_y = velocity_x * sin_angle + velocity_y * cos_angle
+
+                    local velocity = {
+                        x = rotated_velocity_x,
+                        y = rotated_velocity_y,
+                        z = velocity_z,
+                    }
+
+                    -- Determine scale
+                    local scale = random_float(emitter.data.scale_min or 1, emitter.data.scale_max or 1)
+
+                    -- Determine particle rotation
+                    local particle_rotation = 0
+                    if emitter.data.sprite_random_rotation then
+                        particle_rotation = random_float(0, math.pi * 2)
+                    end
+
+                    if emitter.data.use_velocity_as_rotation then
+                        particle_rotation = math.atan2(velocity.y, velocity.x)
+                    end
+
+                    -- Create particle data
+                    local particle = {
+                        id = particle_id,
+                        position = position,
+                        velocity = velocity,
+                        lifetime = lifetime,
+                        age = 0,
+                        scale = scale,
+                        rotation = particle_rotation,
+                    }
+
+                    table.insert(emitter.particles, particle)
+                end
+
+                emitter.last_emit_time = current_frame
+            end
+        end
+
+        -- Update and render particles
+        local particles_to_remove = {}
+        for i, particle in ipairs(emitter.particles) do
+            -- Update particle position
+            particle.position.x = particle.position.x + (particle.velocity.x or 0)
+            particle.position.y = particle.position.y + (particle.velocity.y or 0)
+            particle.position.z = particle.position.z + (particle.velocity.z or 0)
+
+            particle.age = particle.age + 1
+
+            -- Compute alpha over lifetime if needed
+            local alpha = 1
+            if emitter.data.alpha_over_lifetime then
+                alpha = 1 - (particle.age / particle.lifetime)
+            end
+
+            -- Render particle
+            local texture = emitter.data.texture
+            local texture_type = RenderingSystem.texture_map[texture].type
+
+            if texture_type == RenderingSystem.texture_types.billboard then
+                RenderingSystem.RenderBillboard(
+                    particle.id,
+                    texture,
+                    particle.position.x,
+                    particle.position.y,
+                    particle.position.z,
+                    particle.scale,
+                    particle.rotation,
+                    alpha
+                )
+            elseif texture_type == RenderingSystem.texture_types.directional_billboard then
+                RenderingSystem.RenderDirectionalBillboard(
+                    particle.id,
+                    texture,
+                    particle.position.x,
+                    particle.position.y,
+                    particle.position.z,
+                    emitter.rotation,
+                    particle.scale,
+                    particle.rotation,
+                    alpha
+                )
+            end
+
+            -- Check if particle should be removed
+            if particle.age >= particle.lifetime then
+                table.insert(particles_to_remove, i)
+            end
+        end
+
+        -- Remove dead particles
+        for i = #particles_to_remove, 1, -1 do
+            table.remove(emitter.particles, particles_to_remove[i])
+        end
+    end
+end
+
+
 
 dofile("data/scripts/lib/utilities.lua")
 
@@ -499,7 +739,7 @@ function RenderingSystem.DrawLine(point1, point2, width, r, g, b, a)
     GuiColorSetForNextWidget(gui, r, g, b, a)
     local offsetX = math.sin(angle) * (width / 2)
     local offsetY = math.cos(angle) * -(width / 2)
-    GuiImage(gui, RenderingSystem.new_debug_id(), vec1.x + offsetX, vec1.y + offsetY, "mods/evaisa.kart/files/textures/1pixel.png", a, length, width, angle)
+    GuiImage(gui, RenderingSystem.new_id(), vec1.x + offsetX, vec1.y + offsetY, "mods/evaisa.kart/files/textures/1pixel.png", a, length, width, angle)
 end
 
 function RenderingSystem.DrawText(text, point, scale, center_horizontal, center_vertical, r, g, b, a, font, is_pixel_font)
@@ -582,27 +822,43 @@ function RenderingSystem.GenerateTextures()
 end
 
 function RenderingSystem.Update()
-	-- reset id to 4
-	RenderingSystem.last_id = 4
-	RenderingSystem.last_debug_id = 1352551
-	GuiStartFrame(gui)
+    -- Reset IDs
+    GuiStartFrame(gui)
 
-	-- garbage collection
-	for id, entity in pairs(renderedSprites) do
-		if entity.last_frame_rendered and entity.last_frame_rendered < GameGetFrameNum() - 5 then
-			EntityKill(entity.entity)
-			renderedSprites[id] = nil
+    -- Garbage collection
+	for k, v in pairs(RenderingSystem.render_pools) do
+		for id, entity in pairs(v) do
+			if entity.last_frame_rendered and entity.last_frame_rendered < GameGetFrameNum() - 5 then
+				EntityKill(entity.entity)
+				v[id] = nil
+			end
 		end
 	end
 end
 
+function RenderingSystem.UpdateParticles()
+    RenderingSystem.UpdateEmitters()
+end
+
 function RenderingSystem.Reset()
-	-- kill all rendered sprites
-	for id, entity in pairs(renderedSprites) do
-		if(EntityGetIsAlive(entity))then
-			EntityKill(entity)
+
+    -- Kill all rendered sprites
+	for k, v in pairs(RenderingSystem.render_pools) do
+		for id, entity in pairs(v) do
+			if EntityGetIsAlive(entity) then
+				EntityKill(entity)
+			end
 		end
 	end
-	renderedSprites = {}
-	print("Reset rendering system")
+    
+
+	-- Reset emitters
+	RenderingSystem.emitters = {}
+	RenderingSystem.render_pools = {}
+	RenderingSystem.emitter_id = 0
+
+	-- Reset IDs
+	RenderingSystem.reset_id()
+
+    print("Reset rendering system")
 end

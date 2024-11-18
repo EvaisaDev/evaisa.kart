@@ -10,6 +10,7 @@ function ComponentSystem.DefineComponent(componentType, defaultData)
     if not ComponentSystem[componentType] then
         ComponentSystem[componentType] = Utilities.deepCopy(defaultData)
 		ComponentSystem[componentType]._type = componentType
+		ComponentSystem[componentType].tags = {}
 		ComponentSystem[componentType].SetValue = function(self, key, value)
 			self[key] = value
 		end

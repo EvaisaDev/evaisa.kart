@@ -42,5 +42,17 @@ texture_definitions = {
 				offset_y = 132,
 			},
 		}
-	}
+	},
+	{
+		uid = "smoke",
+		type = TextureTypes.billboard,
+		defs = {
+			{
+				path = "data/particles/smoke_cloud_tiny_grey_1.xml",
+			},
+			{
+				path = "data/particles/smoke_cloud_tiny_grey_2.xml",
+			},			
+		},
+	},
 }
