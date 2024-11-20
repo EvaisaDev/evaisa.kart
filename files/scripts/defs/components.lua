@@ -523,7 +523,7 @@ component_definitions = {
 				local checkpoint_index = TrackSystem.GetCurrentCheckpoint(x, y)
 				
 
-				if (self.last_checkpoint and checkpoint_index < self.last_checkpoint and checkpoint_index > 1) or (self.last_checkpoint and self.last_checkpoint == checkpoint_index and self.was_wrongway) then
+				if (checkpoint_index and (self.last_checkpoint and checkpoint_index < self.last_checkpoint and checkpoint_index > 1) or (self.last_checkpoint and self.last_checkpoint == checkpoint_index and self.was_wrongway)) then
 					self.was_wrongway = true
 					-- Player is going the wrong way
 					if(self.wrongway_timer < self.wrongway_delay)then
