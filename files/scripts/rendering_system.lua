@@ -194,7 +194,6 @@ function GetWindowSize()
 	local w = ffi.new("int[1]")
 	local h = ffi.new("int[1]")
 	SDL2.SDL_GetWindowSize(window, w, h)
-	print("Window size: ", w[0], h[0])
 	return w[0], h[0]
 end
 
