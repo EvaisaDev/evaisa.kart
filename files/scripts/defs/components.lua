@@ -347,7 +347,7 @@ component_definitions = {
 			player_id = 0,
 			current_node = nil,         -- The current node the AI is moving towards
 			next_checkpoint = 1,     
-			last_checkpoint = nil,
+			last_checkpoint = 1,
 			last_rotation = 0,
 			wrongway_delay = 50,
 			wrongway_timer = 0,
@@ -487,27 +487,35 @@ component_definitions = {
 				velocityComponent.velocity.x = velocityComponent.velocity.x + math.cos(entity.transform.rotation + math.pi / 2) * adjusted_acceleration
 				velocityComponent.velocity.y = velocityComponent.velocity.y + math.sin(entity.transform.rotation + math.pi / 2) * adjusted_acceleration
 			end,
-			
-	
+			NetworkSerialize = function(self, lobby)
+				return Structs.Kart{
+					is_npc = self.is_npc,
+					player_id = self.player_id,
+					next_checkpoint = self.next_checkpoint,
+					last_checkpoint = self.last_checkpoint,
+					last_rotation = self.last_rotation,
+					wrongway_delay = self.wrongway_delay,
+					wrongway_timer = self.wrongway_timer,
+					was_wrongway = self.was_wrongway
+				}
+			end,
+			NetworkDeserialize = function(self, lobby, data)
+				-- apply data
+				self.is_npc = data.is_npc
+				self.player_id = data.player_id
+				self.next_checkpoint = data.next_checkpoint
+				self.last_checkpoint = data.last_checkpoint
+				self.last_rotation = data.last_rotation
+				self.wrongway_delay = data.wrongway_delay
+				self.wrongway_timer = data.wrongway_timer
+				self.was_wrongway = data.was_wrongway
+			end,
 			Update = function(self, entity, lobby)
 				local map = TrackSystem.GetActiveTrack()
 				if not map then return end
 	
 				local x = entity.transform.position.x
 				local y = entity.transform.position.y
-	
-				if self.is_npc then
-					self:UpdateAIMovement(entity)
-				elseif self._entity:IsOwner() then
-					self:PlayerMovement(entity)
-	
-					-- Follow camera
-					CameraSystem.target_entity = entity
-					if(RenderingSystem.debug_gizmos)then
-						-- track checkpoints
-						TrackSystem.DrawCheckpoint(self.next_checkpoint)
-					end
-				end
 	
 				
 
@@ -560,31 +568,46 @@ component_definitions = {
 
 				self.last_checkpoint = checkpoint_index
 
-				
-	
-				local material = TrackSystem.CheckMaterial(x, y)
-				local velocityComponent = entity:GetComponentOfType("Velocity")
-				if material == MaterialTypes.slow or material == MaterialTypes.out_of_bounds or material == MaterialTypes.solid then
-					if velocityComponent then
-						velocityComponent.velocity.x = velocityComponent.velocity.x * self.config.slow_mult
-						velocityComponent.velocity.y = velocityComponent.velocity.y * self.config.slow_mult
+				if(entity:IsOwner())then
+					if self.is_npc then
+						self:UpdateAIMovement(entity)
+					else
+						self:PlayerMovement(entity)
+		
+						-- Follow camera
+						CameraSystem.target_entity = entity
+						if(RenderingSystem.debug_gizmos)then
+							-- track checkpoints
+							TrackSystem.DrawCheckpoint(self.next_checkpoint)
+						end
 					end
-				end
+		
 
-				if(material == MaterialTypes.default)then
-					-- check if going fast and turning, if so, find ParticleEmitter component with tire_smoke tag enable it, otherwise disable it
-					if(velocityComponent)then
-						local speed = velocityComponent.velocity:len()
-						if(speed > 3 and self.last_rotation ~= entity.transform.rotation)then
-							local emitters = entity:GetComponentsOfType("ParticleEmitter", "tire_smoke")
-							for _, emitter in ipairs(emitters) do
-								emitter:Burst(1)
+		
+					local material = TrackSystem.CheckMaterial(x, y)
+					local velocityComponent = entity:GetComponentOfType("Velocity")
+					if material == MaterialTypes.slow or material == MaterialTypes.out_of_bounds or material == MaterialTypes.solid then
+						if velocityComponent then
+							velocityComponent.velocity.x = velocityComponent.velocity.x * self.config.slow_mult
+							velocityComponent.velocity.y = velocityComponent.velocity.y * self.config.slow_mult
+						end
+					end
+
+					if(material == MaterialTypes.default)then
+						-- check if going fast and turning, if so, find ParticleEmitter component with tire_smoke tag enable it, otherwise disable it
+						if(velocityComponent)then
+							local speed = velocityComponent.velocity:len()
+							if(speed > 3 and self.last_rotation ~= entity.transform.rotation)then
+								local emitters = entity:GetComponentsOfType("ParticleEmitter", "tire_smoke")
+								for _, emitter in ipairs(emitters) do
+									emitter:Burst(1)
+								end
 							end
 						end
 					end
-				end
 
-				self.last_rotation = entity.transform.rotation
+					self.last_rotation = entity.transform.rotation
+				end
 			end,
 		}
 	},
