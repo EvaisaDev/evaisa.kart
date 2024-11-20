@@ -194,6 +194,7 @@ function GetWindowSize()
 	local w = ffi.new("int[1]")
 	local h = ffi.new("int[1]")
 	SDL2.SDL_GetWindowSize(window, w, h)
+	print("Window size: ", w[0], h[0])
 	return w[0], h[0]
 end
 
@@ -564,7 +565,7 @@ function RenderingSystem.RenderBillboard(id, texture, x, y, z, sprite_scale, spr
 				if(renderedSprites[id].frame_timer >= anim.frame_wait)then
 					renderedSprites[id].frame_timer = 0
 					current_frame = current_frame + 1
-					print("current_frame: "..current_frame)
+					--print("current_frame: "..current_frame)
 					if(current_frame > anim.frame_count)then
 						if(anim.loop)then
 							current_frame = 1
@@ -574,7 +575,7 @@ function RenderingSystem.RenderBillboard(id, texture, x, y, z, sprite_scale, spr
 					end
 					renderedSprites[id].current_frame = current_frame
 					local anim_name = animation.."_"..tostring(current_frame)
-					print("anim_name: "..anim_name)
+					--print("anim_name: "..anim_name)
 					ComponentSetValue2(sprite_comp, "rect_animation", anim_name)
 				end
 		
