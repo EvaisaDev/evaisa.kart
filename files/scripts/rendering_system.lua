@@ -183,7 +183,7 @@ local ffi = require("ffi")
 ffi.cdef([[
 typedef struct SDL_Window SDL_Window;
 SDL_Window* SDL_GL_GetCurrentWindow();
-int SDL_GetWindowSize(SDL_Window* window, int* w, int* h);
+void SDL_GL_GetDrawableSize(SDL_Window * window, int *w, int *h);
 ]])
 
 SDL2 = ffi.load('SDL2.dll')
@@ -193,7 +193,7 @@ local window = SDL2.SDL_GL_GetCurrentWindow()
 function GetWindowSize()
 	local w = ffi.new("int[1]")
 	local h = ffi.new("int[1]")
-	SDL2.SDL_GetWindowSize(window, w, h)
+	SDL2.SDL_GL_GetDrawableSize(window, w, h)
 	return w[0], h[0]
 end
 
