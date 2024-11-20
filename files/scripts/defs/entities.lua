@@ -120,8 +120,9 @@ entity_definitions = {
 			{
 				type = "Lakitu",
 				data = {
-					offset = Vector3(5, 15, 35),
-					lerp = 0.1,
+					spawn_offset = Vector3(200, 20, 145),
+					offset = Vector3(0, 20, 45),
+					lerp = 0.05,
 					wave_speed = 0.03,
 					wave_amplitude = 2,
 				}

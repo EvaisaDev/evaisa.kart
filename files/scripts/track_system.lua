@@ -520,6 +520,24 @@ function TrackSystem.GetNearestCheckpoint(x, y, next_checkpoint)
 	return nearest_checkpoint
 end
 
+function TrackSystem.GetCurrentCheckpoint(x, y)
+	local track = TrackSystem.track_map[TrackSystem.current_track]
+	if (track == nil) then
+		return nil
+	end
+
+	-- convert x, y to map scale
+	x = math.floor(x / track.material_map_scale.x)
+	y = math.floor(y / track.material_map_scale.y)
+
+	for _, zone in ipairs(track.checkpoint_zones) do
+		if zone.pixel_map[y] and zone.pixel_map[y][x] then
+			return zone.index
+		end
+	end
+
+	return nil
+end
 
 
 function TrackSystem.Update()

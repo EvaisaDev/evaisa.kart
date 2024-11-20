@@ -103,7 +103,7 @@ function RenderingSystem.GenerateAnimation(uid, image_path, animations)
 	]]
 
 	local file_template = [[
-		<Sprite filename="[image_path]" >
+		<Sprite filename="[image_path]" default_animation="[default_anim]" >
 			[animations]
 		</Sprite>
 		]]
@@ -116,7 +116,7 @@ function RenderingSystem.GenerateAnimation(uid, image_path, animations)
 		frame_width="[frame_width]" 
 		frame_height="[frame_height]" 
 		frame_count="1"  	
-		frame_wait="[frame_wait]" 
+		frame_wait="0.0001" 
 		frames_per_row="1" 
 		shrink_by_one_pixel="[shrink_by_one_pixel]"
 		loop="1"  >
@@ -125,17 +125,22 @@ function RenderingSystem.GenerateAnimation(uid, image_path, animations)
 
 	-- generate a separate RectAnimation for each frame.
 	local animations_xml = ""
+	local default_anim = nil
 	for anim_name, anim in pairs(animations) do
 		-- loop through frame count / frames per row to get the correct pos_x and pos_y
 		for j = 0, anim.frame_count - 1 do
 			local name = anim_name.."_"..tostring(j + 1)
+			if(default_anim == nil)then
+				default_anim = name
+			end
+			
 			local pos_x = anim.pos_x + (j % anim.frames_per_row) * anim.frame_width
 			local pos_y = anim.pos_y + math.floor(j / anim.frames_per_row) * anim.frame_height
-			animations_xml = animations_xml .. animation_template:gsub("%[name%]", name):gsub("%[pos_x%]", tostring(pos_x)):gsub("%[pos_y%]", tostring(pos_y)):gsub("%[frame_width%]", tostring(anim.frame_width)):gsub("%[frame_height%]", tostring(anim.frame_height)):gsub("%[frame_wait%]",tostring(anim.frame_wait)):gsub("%[shrink_by_one_pixel%]", anim.shrink_by_one_pixel and "1" or "0")
+			animations_xml = animations_xml .. animation_template:gsub("%[name%]", name):gsub("%[pos_x%]", tostring(pos_x)):gsub("%[pos_y%]", tostring(pos_y)):gsub("%[frame_width%]", tostring(anim.frame_width)):gsub("%[frame_height%]", tostring(anim.frame_height)):gsub("%[shrink_by_one_pixel%]", anim.shrink_by_one_pixel and "1" or "0")
 		end
 	end
 
-	local file_contents = file_template:gsub("%[image_path%]", image_path):gsub("%[animations%]", animations_xml)
+	local file_contents = file_template:gsub("%[image_path%]", image_path):gsub("%[animations%]", animations_xml):gsub("%[default_anim%]", default_anim)
 
 	local path = "data/entities/sprites/"..uid..".xml"
 
@@ -529,7 +534,7 @@ function RenderingSystem.RenderBillboard(id, texture, x, y, z, sprite_scale, spr
 				renderedSprites[id].animation = tex.default_animation
 			end
 
-			print("animation: "..renderedSprites[id].animation)
+			--print("animation: "..renderedSprites[id].animation)
 
 			--[[Example:
 			wrong_way = {
