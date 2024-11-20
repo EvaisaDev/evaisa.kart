@@ -91,7 +91,7 @@ Game.SpawnPlayers = function(lobby)
 		else
 			player:GetComponentOfType("Kart").is_npc = true
 		end
-		player:NetworkSpawn(member)
+		player:NetworkSpawn(lobby, member)
 	end
 
 	

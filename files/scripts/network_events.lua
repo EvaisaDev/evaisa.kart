@@ -36,7 +36,7 @@ Networking = {
 			local entity = EntitySystem.GetEntityByNetworkId(message[1])
 			if entity then
 				--print("Entity already exists, spawning for user: " .. tostring(user))
-				entity:NetworkSpawn(user)
+				entity:NetworkSpawn(lobby, user)
 			end
 		end,
 		update_owner = function(lobby, message, user)

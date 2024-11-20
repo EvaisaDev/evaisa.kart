@@ -191,7 +191,7 @@ function EntitySystem.Create(name)
             EntitySystem.entities[self._id] = nil
 			
         end,
-		NetworkSpawn = function(self, target)
+		NetworkSpawn = function(self, lobby, target)
 			-- check if we have a network id
 			if(not self.network_id)then
 				-- generate network id
@@ -201,7 +201,18 @@ function EntitySystem.Create(name)
 				EntitySystem.nextNetworkId = EntitySystem.nextNetworkId + 1
 			end
 			print("Spawning entity with id: " .. self.network_id)
-			Networking.send.entity_spawn(self._type, self.network_id, target, self._owner)
+
+			local component_updates = {}
+			for index, component in ipairs(self._components) do
+				if(component.NetworkSerialize and self.network_id and GameGetFrameNum() % (component.update_rate or 1) == 0)then
+					local network_data = component:NetworkSerialize(self, lobby)
+					-- implement networking stuff here
+					table.insert(component_updates, {index, network_data})
+				end
+			end
+	
+
+			Networking.send.entity_spawn(self._type, self.network_id, target, self._owner, component_updates)
 		end,
 		IsOwner = function(self)
 			if(self._owner == steamutils.getSteamID())then
@@ -468,7 +479,7 @@ function EntitySystem.NetworkLoad(entityType, networkId, owner)
 end
 
 
-function EntitySystem.NetworkSpawn(entityType, owner)
+function EntitySystem.NetworkSpawn(lobby, entityType, owner)
 	local entity = EntitySystem.NetworkLoad(entityType, EntitySystem.nextNetworkId, owner)
 	if entity then
 
