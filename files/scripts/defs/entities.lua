@@ -122,7 +122,7 @@ entity_definitions = {
 				data = {
 					spawn_offset = Vector3(200, 20, 145),
 					offset = Vector3(0, 20, 45),
-					lerp = 0.05,
+					lerp = 0.1,
 					wave_speed = 0.03,
 					wave_amplitude = 2,
 				}
