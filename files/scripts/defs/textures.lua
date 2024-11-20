@@ -55,4 +55,32 @@ texture_definitions = {
 			},			
 		},
 	},
+	{
+		uid = "lakitu",
+		type = TextureTypes.billboard,
+		path = "mods/evaisa.kart/files/textures/misc/lakitu.png",
+		animations = {
+			flag = {
+				pos_x=0,
+				pos_y=0,
+				frame_count=3,
+				frame_width=42,
+				frame_height=34,
+				frame_wait=1,
+				frames_per_row=3,
+				loop=true,
+			},
+			wrong_way = {
+				pos_x=0,
+				pos_y=34,
+				frame_count=2,
+				frame_width=42,
+				frame_height=34,
+				frame_wait=1,
+				frames_per_row=2,
+				loop=true,
+			}
+		},
+		default_animation = "flag",
+	},
 }

@@ -240,6 +240,12 @@ function EntitySystem.Create(name)
 		GetComponents = function(self)
 			return self._components
 		end,
+		IsAlive = function(self)
+			return EntitySystem.entities[self._id] ~= nil
+		end,
+		IsValid = function(self)
+			return self:IsAlive()
+		end,
 		--[[GetTags = function(self)
 			return self._tags
 		end,

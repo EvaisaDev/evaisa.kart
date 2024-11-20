@@ -106,5 +106,26 @@ entity_definitions = {
 				}
 			}
 		}
+	},
+	{
+		uid = "lakitu",
+		name = "Lakitu",
+		components = {
+			{	
+				type = "Sprite",
+				data = {
+					texture = "lakitu"
+				}
+			},
+			{
+				type = "Lakitu",
+				data = {
+					offset = Vector3(5, 15, 35),
+					lerp = 0.1,
+					wave_speed = 0.03,
+					wave_amplitude = 2,
+				}
+			}
+		}
 	}
 }

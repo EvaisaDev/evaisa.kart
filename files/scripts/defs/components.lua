@@ -271,6 +271,12 @@ component_definitions = {
             SetTexture = function(self, texture)
                 self.texture = texture
             end,
+			SetAnimation = function(self, animation)
+				RenderingSystem.SetAnimation(self.sprite_id, animation)
+			end,
+			GetAnimation = function(self)
+				return RenderingSystem.GetAnimation(self.sprite_id)
+			end,	
             Update = function(self, entity, lobby)
 
 				if self.sprite_id == nil then
@@ -342,7 +348,8 @@ component_definitions = {
 			current_node = nil,         -- The current node the AI is moving towards
 			next_checkpoint = 1,     
 			last_rotation = 0,
-	
+			wrongway_delay = 50,
+			wrongway_timer = 0,
 			PlayerMovement = function(self, entity)
 				-- Get the input keys
 				local forwardPressed = InputIsKeyDown(26)
@@ -510,7 +517,56 @@ component_definitions = {
 					end
 				end
 				
+				-- Determine if the player is going the wrong way
+				local next_checkpoint_pos = TrackSystem.GetNearestCheckpoint(x, y, self.next_checkpoint)
+				if next_checkpoint_pos then
+					local to_checkpoint = Vector3(
+						next_checkpoint_pos.x - x,
+						next_checkpoint_pos.y - y,
+						0
+					)
+					to_checkpoint = to_checkpoint:normalize()
 
+					-- Player's forward direction
+					local forward_direction = Vector3(
+						math.cos(entity.transform.rotation + math.pi / 2),
+						math.sin(entity.transform.rotation + math.pi / 2),
+						0
+					)
+
+					-- Calculate the dot product
+					local dot_product = forward_direction:dot(to_checkpoint)
+
+					if dot_product < 0 then
+						-- Player is going the wrong way
+						if(self.wrongway_timer < self.wrongway_delay)then
+							self.wrongway_timer = self.wrongway_timer + 1
+						else
+							-- Spawn Lakitu if not already spawned
+							if not self.lakitu_entity or not self.lakitu_entity:IsValid() then
+								print("Spawning Lakitu")
+								self.lakitu_entity = EntitySystem.FromType("lakitu")
+								if self.lakitu_entity then
+									self.lakitu_entity.transform.position = entity.transform.position + Vector3(0, 0, 20)
+									local lakitu_component = self.lakitu_entity:GetComponentOfType("Lakitu")
+									if lakitu_component then
+										lakitu_component.target_entity = entity
+										lakitu_component.state = "wrong_way"
+									end
+								
+								end
+							end
+						end
+					else
+						-- Player is going the right way
+						-- Remove Lakitu if it exists
+						if self.lakitu_entity and self.lakitu_entity:IsValid() then
+							self.lakitu_entity:Destroy()
+							self.lakitu_entity = nil
+						end
+						self.wrongway_timer = 0
+					end
+				end
 				
 	
 				local material = TrackSystem.CheckMaterial(x, y)
@@ -568,5 +624,58 @@ component_definitions = {
             end,
         }
     },
+	{
+		name = "Lakitu",
+		default_data = {
+			target_entity = nil,
+			offset = Vector3(0, 0, 0),
+			lerp = 0.1,
+			wave_amplitude = 5,
+			wave_speed = 0.1,
+			state = "flag",
+			last_state = nil,
+			state_animations = {
+				flag = "flag",
+				wrong_way = "wrong_way",
+			},
+			Update = function(self, entity, lobby)
+				if self.target_entity then
+					-- Get the target entity's Transform component
+					local target_transform = self.target_entity:GetComponentOfType("Transform")
+					if target_transform then
+						-- Compute the rotated offset based on the target's rotation
+						local rotation = target_transform.rotation
+						local cos_rot = math.cos(rotation)
+						local sin_rot = math.sin(rotation)
+						
+						local rotated_offset = Vector3(
+							self.offset.x * cos_rot - self.offset.y * sin_rot,
+							self.offset.x * sin_rot + self.offset.y * cos_rot,
+							self.offset.z
+						)
+						
+						-- Calculate the desired position
+						local desired_position = target_transform.position + rotated_offset
+						
+						-- Add vertical bobbing using a sine wave
+						local time = GameGetFrameNum() * self.wave_speed
+						desired_position.z = desired_position.z + math.sin(time) * self.wave_amplitude
+						
+						-- Smoothly move towards the desired position using lerp
+						entity.transform.position = entity.transform.position:lerp(desired_position, self.lerp)
+					end
+				end
+
+				-- Update the state animation
+				if self.state ~= self.last_state then
+					local sprite_component = entity:GetComponentOfType("Sprite")
+					if sprite_component then
+						sprite_component:SetAnimation(self.state_animations[self.state])
+					end
+					self.last_state = self.state
+				end
+			end,
+		},
+	},
 
 }

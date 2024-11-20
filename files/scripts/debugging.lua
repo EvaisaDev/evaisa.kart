@@ -124,7 +124,7 @@ module.ShowEntitiesTab = function()
         imgui.TableSetupColumn("Open", imgui.TableColumnFlags.WidthStretch, 3)
         imgui.TableHeadersRow()
 
-        for _, entity in ipairs(entities) do
+        for _, entity in pairs(entities) do
             local tag_string = table.concat(entity.tags or {}, ", ")
             local entity_name = entity._name or ""
 

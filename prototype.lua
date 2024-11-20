@@ -444,7 +444,7 @@ function RenderDirectionalBillboard(id, texture, x, y, z, r, sprite_scale)
         -- Set the animation based on the calculated sprite index
         local anim_name = "anim_"..tostring(sprite_index)
         ComponentSetValue2(sprite_comp, "rect_animation", anim_name)
-        GamePlayAnimation(renderedSprites[id], anim_name, 0)
+        --GamePlayAnimation(renderedSprites[id], anim_name, 0)
 
 		-- set Z index of sprite component based on distance
 		ComponentSetValue2(sprite_comp, "z_index", math.floor(distance))

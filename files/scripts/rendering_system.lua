@@ -18,7 +18,8 @@ RenderingSystem = {
 	debug_gizmos = false,
 	emitter_id = 0,
 	emitters = {},
-	render_pools = {}
+	--render_pools = {}
+	render_pool = {}
 }
 --local renderedSprites = {}
 
@@ -81,6 +82,67 @@ function RenderingSystem.GenerateDirectionalTexture(uid, image_path, rotations, 
 
 	-- print
 	print("Generated directional texture: "..path)
+	print(file_contents)
+
+	return path
+end
+
+function RenderingSystem.GenerateAnimation(uid, image_path, animations)
+	--[[EXAMPLE:
+	{
+        name = name,
+        frame_count = frame_count,
+        frame_width = frame_width,
+        frame_height = frame_height,
+        frames_per_row = frames_per_row,
+        shrink_by_one_pixel = shrink_by_one_pixel,
+        pos_x = pos_x,
+        pos_y = pos_y,
+        frame_wait = frame_wait,
+    }
+	]]
+
+	local file_template = [[
+		<Sprite filename="[image_path]" >
+			[animations]
+		</Sprite>
+		]]
+
+	local animation_template = [[
+	<RectAnimation 
+		name="[name]" 
+		pos_x="[pos_x]" 
+		pos_y="[pos_y]" 
+		frame_width="[frame_width]" 
+		frame_height="[frame_height]" 
+		frame_count="1"  	
+		frame_wait="[frame_wait]" 
+		frames_per_row="1" 
+		shrink_by_one_pixel="[shrink_by_one_pixel]"
+		loop="1"  >
+	</RectAnimation>
+	]]
+
+	-- generate a separate RectAnimation for each frame.
+	local animations_xml = ""
+	for anim_name, anim in pairs(animations) do
+		-- loop through frame count / frames per row to get the correct pos_x and pos_y
+		for j = 0, anim.frame_count - 1 do
+			local name = anim_name.."_"..tostring(j + 1)
+			local pos_x = anim.pos_x + (j % anim.frames_per_row) * anim.frame_width
+			local pos_y = anim.pos_y + math.floor(j / anim.frames_per_row) * anim.frame_height
+			animations_xml = animations_xml .. animation_template:gsub("%[name%]", name):gsub("%[pos_x%]", tostring(pos_x)):gsub("%[pos_y%]", tostring(pos_y)):gsub("%[frame_width%]", tostring(anim.frame_width)):gsub("%[frame_height%]", tostring(anim.frame_height)):gsub("%[frame_wait%]",tostring(anim.frame_wait)):gsub("%[shrink_by_one_pixel%]", anim.shrink_by_one_pixel and "1" or "0")
+		end
+	end
+
+	local file_contents = file_template:gsub("%[image_path%]", image_path):gsub("%[animations%]", animations_xml)
+
+	local path = "data/entities/sprites/"..uid..".xml"
+
+	ModTextFileSetContent(path, file_contents)
+	
+	-- print
+	print("Generated animation: "..path)
 	print(file_contents)
 
 	return path
@@ -244,11 +306,8 @@ function RenderingSystem.RenderDirectionalBillboard(id, texture, x, y, z, r, spr
 
     local tex = RenderingSystem.texture_map[texture]
 
-	if(RenderingSystem.render_pools[texture] == nil) then
-		RenderingSystem.render_pools[texture] = {}
-	end
 
-	local renderedSprites = RenderingSystem.render_pools[texture]
+	local renderedSprites = RenderingSystem.render_pool
 
     -- Create the sprite entity if it doesn't exist
     if(renderedSprites[id] == nil) then
@@ -262,7 +321,10 @@ function RenderingSystem.RenderDirectionalBillboard(id, texture, x, y, z, r, spr
 			offset_y = tex.offset_y or 0,
 			alpha = alpha or 1,
         })
-        EntityAddComponent2(renderedSprites[id].entity, "SpriteAnimatorComponent")
+		--[[ComponentAddTag(sprite_comp, "billboard")
+        EntityAddComponent2(renderedSprites[id].entity, "SpriteAnimatorComponent", {
+			target_sprite_comp_name = "billboard"
+		})]]
 		
     end
 
@@ -335,7 +397,6 @@ function RenderingSystem.RenderDirectionalBillboard(id, texture, x, y, z, r, spr
 		if relative_angle > (math.pi / 2) then
 			sprite_index = math.floor((relative_angle - (math.pi / 2)) / anglePerSpriteForwards) % (total_rotations - (side_index - 1))
 			sprite_index = sprite_index + (side_index - 1)
-
 		end
 
 		--GamePrint("sprite_index: "..sprite_index)
@@ -344,7 +405,7 @@ function RenderingSystem.RenderDirectionalBillboard(id, texture, x, y, z, r, spr
         -- Set the animation based on the calculated sprite index
         local anim_name = "anim_"..tostring(sprite_index)
         ComponentSetValue2(sprite_comp, "rect_animation", anim_name)
-        GamePlayAnimation(renderedSprites[id].entity, anim_name, 0)
+        --GamePlayAnimation(renderedSprites[id].entity, anim_name, 0)
 
 		-- set Z index of sprite component based on distance
 		ComponentSetValue2(sprite_comp, "z_index", math.floor(distance))
@@ -363,6 +424,14 @@ function RenderingSystem.RenderDirectionalBillboard(id, texture, x, y, z, r, spr
     else
         print("SpriteComponent not found for sprite ID:", renderedSprites[id].entity)
     end
+end
+
+function RenderingSystem.GetSpriteEntity(id)
+	if(RenderingSystem.render_pool[id] == nil) then
+		return nil
+	end
+
+	return RenderingSystem.render_pool[id].entity
 end
 
 -- billboard without rotation
@@ -402,11 +471,7 @@ function RenderingSystem.RenderBillboard(id, texture, x, y, z, sprite_scale, spr
 
     local tex = RenderingSystem.texture_map[texture]
 
-	if(RenderingSystem.render_pools[texture] == nil) then
-		RenderingSystem.render_pools[texture] = {}
-	end
-
-	local renderedSprites = RenderingSystem.render_pools[texture]
+	local renderedSprites = RenderingSystem.render_pool
 
 
     -- Create the sprite entity if it doesn't exist
@@ -421,11 +486,14 @@ function RenderingSystem.RenderBillboard(id, texture, x, y, z, sprite_scale, spr
 			offset_y = tex.offset_y or 0,
 			alpha = alpha or 1,
         })
-        EntityAddComponent2(renderedSprites[id].entity, "SpriteAnimatorComponent")
+		--[[ComponentAddTag(sprite_comp, "billboard")
+        EntityAddComponent2(renderedSprites[id].entity, "SpriteAnimatorComponent", {
+			target_sprite_comp_name = "billboard"
+		})]]
 		
     end
 
-	renderedSprites[id].last_frame_rendered = GameGetFrameNum()
+
 
     local sprite_comp = EntityGetFirstComponentIncludingDisabled(renderedSprites[id].entity, "SpriteComponent")
     if(sprite_comp ~= nil) then
@@ -456,6 +524,59 @@ function RenderingSystem.RenderBillboard(id, texture, x, y, z, sprite_scale, spr
 
 		--GamePrint("sprite_index: "..sprite_index)
 
+		if(tex.is_animated)then
+			if(renderedSprites[id].animation == nil)then
+				renderedSprites[id].animation = tex.default_animation
+			end
+
+			print("animation: "..renderedSprites[id].animation)
+
+			--[[Example:
+			wrong_way = {
+				pos_x=0,
+				pos_y=34,
+				frame_count=2,
+				frame_width=42,
+				frame_height=34,
+				frame_wait=0.2,
+				frames_per_row=2,
+				loop=1,
+			}
+			]]
+			local animation = renderedSprites[id].animation
+			if(animation == nil)then
+				for k, v in pairs(tex.animations)do
+					animation = k
+					break
+				end
+			end
+
+			if(animation and tex.animations[animation])then
+				local anim = tex.animations[animation]
+				local current_frame = renderedSprites[id].current_frame or 1
+				local delta_time = 1 / 60
+				renderedSprites[id].frame_timer = (renderedSprites[id].frame_timer or 0) + delta_time
+				if(renderedSprites[id].frame_timer >= anim.frame_wait)then
+					renderedSprites[id].frame_timer = 0
+					current_frame = current_frame + 1
+					print("current_frame: "..current_frame)
+					if(current_frame > anim.frame_count)then
+						if(anim.loop)then
+							current_frame = 1
+						else
+							current_frame = anim.frame_count
+						end
+					end
+					renderedSprites[id].current_frame = current_frame
+					local anim_name = animation.."_"..tostring(current_frame)
+					print("anim_name: "..anim_name)
+					ComponentSetValue2(sprite_comp, "rect_animation", anim_name)
+				end
+		
+
+			end
+		end
+
 
 		-- set Z index of sprite component based on distance
 		ComponentSetValue2(sprite_comp, "z_index", math.floor(distance))
@@ -474,6 +595,26 @@ function RenderingSystem.RenderBillboard(id, texture, x, y, z, sprite_scale, spr
     else
         print("SpriteComponent not found for sprite ID:", renderedSprites[id].entity)
     end
+
+	renderedSprites[id].last_frame_rendered = GameGetFrameNum()
+end
+
+function RenderingSystem.SetAnimation(id, animation)
+	local renderedSprites = RenderingSystem.render_pool
+	if(renderedSprites[id] == nil) then
+		return
+	end
+
+	renderedSprites[id].animation = animation
+end
+
+function RenderingSystem.GetAnimation(id)
+	local renderedSprites = RenderingSystem.render_pool
+	if(renderedSprites[id] == nil) then
+		return nil
+	end
+
+	return renderedSprites[id].animation
 end
 
 
@@ -807,14 +948,20 @@ end
 function RenderingSystem.GenerateTextures()
 	for i, texture in ipairs(texture_definitions) do
 		if(texture.defs)then
-			for _, def in ipairs(texture.defs) do
+			for i, def in ipairs(texture.defs) do
 				if texture.type == texture_types.directional_billboard and def.path then
-					def.path = RenderingSystem.GenerateDirectionalTexture(texture.uid, def.path, def.rotations, def.sprite_width, def.sprite_height, def.shrink_by_one_pixel)
+					def.path = RenderingSystem.GenerateDirectionalTexture(texture.uid .. "_" .. tostring(i), def.path, def.rotations, def.sprite_width, def.sprite_height, def.shrink_by_one_pixel)
+				elseif texture.type == texture_types.billboard and def.path and def.animations then
+					def.path = RenderingSystem.GenerateAnimation(texture.uid .. "_" .. tostring(i), def.path, def.animations)
+					def.is_animated = true
 				end
 			end
 		else
 			if texture.type == texture_types.directional_billboard and texture.path then
 				texture.path = RenderingSystem.GenerateDirectionalTexture(texture.uid, texture.path, texture.rotations, texture.sprite_width, texture.sprite_height, texture.shrink_by_one_pixel)
+			elseif texture.type == texture_types.billboard and texture.path and texture.animations then
+				texture.path = RenderingSystem.GenerateAnimation(texture.uid, texture.path, texture.animations)
+				texture.is_animated = true
 			end
 		end
 		RenderingSystem.texture_map[texture.uid] = texture
@@ -826,14 +973,14 @@ function RenderingSystem.Update()
     GuiStartFrame(gui)
 
     -- Garbage collection
-	for k, v in pairs(RenderingSystem.render_pools) do
-		for id, entity in pairs(v) do
-			if entity.last_frame_rendered and entity.last_frame_rendered < GameGetFrameNum() - 5 then
-				EntityKill(entity.entity)
-				v[id] = nil
-			end
+
+	for id, entity in pairs(RenderingSystem.render_pool) do
+		if entity.last_frame_rendered and entity.last_frame_rendered < GameGetFrameNum() - 5 then
+			EntityKill(entity.entity)
+			RenderingSystem.render_pool[id] = nil
 		end
 	end
+
 end
 
 function RenderingSystem.UpdateParticles()
@@ -843,18 +990,17 @@ end
 function RenderingSystem.Reset()
 
     -- Kill all rendered sprites
-	for k, v in pairs(RenderingSystem.render_pools) do
-		for id, entity in pairs(v) do
-			if EntityGetIsAlive(entity) then
-				EntityKill(entity)
-			end
+
+	for id, entity in pairs(RenderingSystem.render_pool) do
+		if EntityGetIsAlive(entity) then
+			EntityKill(entity)
 		end
 	end
-    
+
 
 	-- Reset emitters
 	RenderingSystem.emitters = {}
-	RenderingSystem.render_pools = {}
+	RenderingSystem.render_pool = {}
 	RenderingSystem.emitter_id = 0
 
 	-- Reset IDs
