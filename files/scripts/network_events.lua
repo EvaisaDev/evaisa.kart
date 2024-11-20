@@ -6,7 +6,12 @@ Networking = {
 				-- make sure the entity doesn't already exist
 				local entity = EntitySystem.GetEntityByNetworkId(message[2])
 				if not entity then
-					EntitySystem.NetworkLoad(message[1], message[2], message[3] and steam.utils.decompressSteamID(message[3]) or nil)
+					entity = EntitySystem.NetworkLoad(message[1], message[2], message[3] and steam.utils.decompressSteamID(message[3]) or nil)
+				end
+				if entity then
+					for i = 1, #message[4] do
+						entity:ComponentSync(message[4][i][1], message[4][i][2])
+					end
 				end
 			end
 		end,
@@ -50,12 +55,12 @@ Networking = {
 		end
 	},
 	send = {
-		entity_spawn = function(entityType, networkId, target, owner)
+		entity_spawn = function(entityType, networkId, target, owner, component_updates)
 			print("Sending entity spawn message for type: " .. tostring(entityType) .. " with network id: " .. tostring(networkId) .. " and owner: " .. tostring(owner))
 			if(not target)then
-				steamutils.send("entity_spawn", {entityType, networkId, steam.utils.compressSteamID(owner)}, steamutils.messageTypes.OtherPlayers, lobby_code, true, true)
+				steamutils.send("entity_spawn", {entityType, networkId, steam.utils.compressSteamID(owner), component_updates}, steamutils.messageTypes.OtherPlayers, lobby_code, true, true)
 			else
-				steamutils.sendToPlayer("entity_spawn", {entityType, networkId, steam.utils.compressSteamID(owner)}, target, true, true)
+				steamutils.sendToPlayer("entity_spawn", {entityType, networkId, steam.utils.compressSteamID(owner), component_updates}, target, true, true)
 			end
 		end,
 		component_update = function(networkId, componentId, data)

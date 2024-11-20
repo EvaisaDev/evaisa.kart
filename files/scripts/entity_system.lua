@@ -472,7 +472,16 @@ function EntitySystem.NetworkSpawn(entityType, owner)
 	local entity = EntitySystem.NetworkLoad(entityType, EntitySystem.nextNetworkId, owner)
 	if entity then
 
-		Networking.send.entity_spawn(entityType, EntitySystem.nextNetworkId, entity._owner)
+		local component_updates = {}
+		for index, component in ipairs(entity._components) do
+			if(component.NetworkSerialize and entity.network_id and GameGetFrameNum() % (component.update_rate or 1) == 0)then
+				local network_data = component:NetworkSerialize(entity, lobby)
+				-- implement networking stuff here
+				table.insert(component_updates, {index, network_data})
+			end
+		end
+
+		Networking.send.entity_spawn(entityType, EntitySystem.nextNetworkId, entity._owner, component_updates)
 
 		EntitySystem.nextNetworkId = EntitySystem.nextNetworkId + 1
 

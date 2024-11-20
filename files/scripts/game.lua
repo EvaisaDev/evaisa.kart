@@ -87,14 +87,7 @@ Game.SpawnPlayers = function(lobby)
 		local member = player_ids[i]
 		if(member)then
 			print("Setting up player: " .. steam_utils.getTranslatedPersonaName(member))	
-			-- set ownership
 			player:SetOwner(member)
-			--player:GetComponentOfType("Kart").player_id = member
-			-- check if this is the local player
-			--[[if(member._id == c)then
-				player:GetComponentOfType("Kart").is_owner = true
-				CameraSystem.target_entity = player
-			end]]
 		else
 			player:GetComponentOfType("Kart").is_npc = true
 		end
