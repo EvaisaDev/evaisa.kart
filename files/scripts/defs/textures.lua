@@ -18,6 +18,18 @@ texture_definitions = {
 		side_index = 8
 	},
 	{
+		uid = "tablet_kart",
+		type = TextureTypes.directional_billboard,
+		path = "mods/evaisa.kart/files/textures/racers/tablet.png", -- this is used to generate the sprite sheet
+		rotations = 12,
+		sprite_width = 32,
+		sprite_height = 32,
+		shrink_by_one_pixel = "0",
+		offset_x = 16,
+		offset_y = 32,
+		side_index = 8
+	},
+	{
 		uid = "tree1",
 		type = TextureTypes.billboard,
 		defs = {
@@ -54,6 +66,24 @@ texture_definitions = {
 				path = "data/particles/smoke_cloud_tiny_grey_2.xml",
 			},			
 		},
+	},
+	{
+		uid = "glyphs",
+		type = TextureTypes.billboard,
+		path = "mods/evaisa.kart/files/textures/misc/glyphs.png",
+		animations = {
+			default = {
+				pos_x=0,
+				pos_y=0,
+				frame_count=26,
+				frame_width=7,
+				frame_height=9,
+				frame_wait=0.04,
+				frames_per_row=26,
+				loop=true,
+			},
+		},
+		default_animation = "default",
 	},
 	{
 		uid = "lakitu",

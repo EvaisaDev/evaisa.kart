@@ -3,16 +3,19 @@ Vector3 = vecs.Vector3
 Vector = vecs.Vector
 
 Structs = dofile("mods/evaisa.kart/files/scripts/defs/structs.lua")
+NetworkVariables = dofile("mods/evaisa.kart/files/scripts/network_variables.lua")
 
 dofile("mods/evaisa.kart/files/scripts/network_events.lua")
 dofile("mods/evaisa.kart/files/scripts/entity_system.lua")
 dofile("mods/evaisa.kart/files/scripts/rendering_system.lua")
 dofile("mods/evaisa.kart/files/scripts/track_system.lua")
+
 Debugging = dofile("mods/evaisa.kart/files/scripts/debugging.lua")
 
 Game = {}
 
 Game.Init = function()
+	SetRandomSeed(1, 1)
 	RenderingSystem.GenerateTextures()
 	ComponentSystem.Init()
 	EntitySystem.Init()
@@ -30,6 +33,43 @@ Game.Update = function(lobby)
 	TrackSystem.Update()
 	CameraSystem.Update()
 	RenderingSystem.UpdateParticles()
+
+	local karts = {}
+	for _, entity in pairs(EntitySystem.entities) do
+		if(entity:GetComponentOfType("Kart"))then
+			table.insert(karts, entity)
+		end
+	end
+
+	if(CameraSystem.target_entity == nil)then
+		-- target random kart entity
+
+
+		if(#karts > 0)then
+			local index = Random(1, #karts)
+			CameraSystem.target_entity = karts[index]
+			CameraSystem.target_index = index
+			CameraSystem.mode = CameraModes.orbit
+		end
+	else
+		-- if we don't own a non-npc card, allow switching spectate target
+		if(not CameraSystem.target_entity:IsOwner() or CameraSystem.target_entity:GetComponentOfType("Kart").network_vars.is_npc)then
+			local switch_left = bindings:IsJustDown("kart_spectator_switch_left") or bindings:IsJustDown("kart_spectator_switch_left_joy")
+			local switch_right = bindings:IsJustDown("kart_spectator_switch_right") or bindings:IsJustDown("kart_spectator_switch_right_joy")
+
+			if(switch_left)then
+				-- use modulo to wrap around, but make sure to account for 1 indexing
+				CameraSystem.target_index = ((CameraSystem.target_index - 2) % #karts) + 1
+				
+				CameraSystem.target_entity = karts[CameraSystem.target_index]
+				CameraSystem.mode = CameraModes.orbit
+			elseif(switch_right)then
+				CameraSystem.target_index = (CameraSystem.target_index % #karts) + 1
+				CameraSystem.target_entity = karts[CameraSystem.target_index]
+				CameraSystem.mode = CameraModes.orbit
+			end
+		end
+	end
 end
 
 Game.LoadMap = function(lobby, map)
@@ -89,11 +129,19 @@ Game.SpawnPlayers = function(lobby)
 			print("Setting up player: " .. steam_utils.getTranslatedPersonaName(member))	
 			player:SetOwner(member)
 		else
-			player:GetComponentOfType("Kart").is_npc = true
+			player:GetComponentOfType("Kart").network_vars.is_npc = true
 		end
 		player:NetworkSpawn(lobby, member)
 	end
 
 	
 
+end
+
+Game.Disconnected = function(lobby, player)
+	for _, entity in pairs(EntitySystem.entities) do
+		if(entity.owner == player)then
+			entity:OwnerDisconnected()
+		end
+	end
 end

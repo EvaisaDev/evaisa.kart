@@ -2,6 +2,9 @@ dofile("mods/evaisa.kart/files/scripts/camera_system.lua")
 dofile("mods/evaisa.kart/files/scripts/defs/textures.lua")
 dofile("mods/evaisa.kart/files/scripts/utilities.lua")
 
+local nxml = dofile("mods/evaisa.kart/lib/nxml.lua")
+local animation_parser = dofile("mods/evaisa.kart/files/scripts/anim_parser.lua")
+
 local gui = GuiCreate()
 
 RenderingSystem = {
@@ -151,6 +154,37 @@ function RenderingSystem.GenerateAnimation(uid, image_path, animations)
 	print(file_contents)
 
 	return path
+end
+
+function RenderingSystem.ParseAnimationXML(def)
+	local path = def.path
+	local success, result = pcall(nxml.parse, path)
+
+	if(success)then
+		local xml = result
+		local sprite = animation_parser.parse_sprite(xml)
+		if(sprite)then
+			def.animations = {}
+			for name, rect in pairs(sprite.rect_animations_by_name) do
+				local anim = {
+					name = name,
+					frame_count = rect.frame_count,
+					frame_width = rect.frame_width,
+					frame_height = rect.frame_height,
+					frames_per_row = rect.frames_per_row,
+					shrink_by_one_pixel = rect.shrink_by_one_pixel,
+					pos_x = rect.pos_x,
+					pos_y = rect.pos_y,
+					frame_wait = rect.frame_wait,
+				}
+				def.animations[name] = anim
+			end
+			-- define default animation
+			def.default_animation = sprite.default_animation
+			def.path = sprite.filename
+		end
+	end
+
 end
 
 -- Need to calculate world position to screen position based on the following shader code:
@@ -966,6 +1000,12 @@ function RenderingSystem.GenerateTextures()
 				elseif texture.type == texture_types.billboard and def.path and def.animations then
 					def.path = RenderingSystem.GenerateAnimation(texture.uid .. "_" .. tostring(i), def.path, def.animations)
 					def.is_animated = true
+				elseif texture.type == texture_types.billboard and def.path and string.sub(def.path, -4) == ".xml" then
+					RenderingSystem.ParseAnimationXML(def)
+					if texture.type == texture_types.billboard and def.path and def.animations then
+						def.path = RenderingSystem.GenerateAnimation(texture.uid .. "_" .. tostring(i), def.path, def.animations)
+						def.is_animated = true
+					end
 				end
 			end
 		else
@@ -974,6 +1014,12 @@ function RenderingSystem.GenerateTextures()
 			elseif texture.type == texture_types.billboard and texture.path and texture.animations then
 				texture.path = RenderingSystem.GenerateAnimation(texture.uid, texture.path, texture.animations)
 				texture.is_animated = true
+			elseif texture.type == texture_types.billboard and texture.path and string.sub(texture.path, -4) == ".xml" then
+				RenderingSystem.ParseAnimationXML(texture)
+				if texture.type == texture_types.billboard and texture.path and texture.animations then
+					texture.path = RenderingSystem.GenerateAnimation(texture.uid, texture.path, texture.animations)
+					texture.is_animated = true
+				end
 			end
 		end
 		RenderingSystem.texture_map[texture.uid] = texture

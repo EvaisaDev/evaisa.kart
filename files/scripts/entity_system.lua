@@ -92,9 +92,35 @@ function EntitySystem.Create(name)
 							component[key] = value
 						end
 					end
+
 				end
 				component._entity = self
 				table.insert(self._components, component)
+				component._id = #self._components
+
+		
+				if(component.network_vars and type(component.network_vars) == "function")then
+					component.network_vars = component.network_vars(component)
+				end
+
+				setmetatable(component, {
+					__index = function(table, key)
+						if table.network_vars[key] ~= nil then
+							return table.network_vars[key]
+						else
+							return rawget(table, key)
+						end
+					end,
+					__newindex = function(table, key, value)
+						if table.network_vars[key] ~= nil then
+							table.network_vars[key] = value
+						else
+							rawset(table, key, value)
+						end
+					end,
+				})
+		
+				
 			else
 				error("Component type " .. componentType .. " not found.")
 			end
@@ -200,7 +226,7 @@ function EntitySystem.Create(name)
 				EntitySystem.entitiesByNetworkId[self.network_id] = self
 				EntitySystem.nextNetworkId = EntitySystem.nextNetworkId + 1
 			end
-			print("Spawning entity with id: " .. self.network_id)
+			--print("Spawning entity with id: " .. self.network_id)
 
 			local component_updates = {}
 			for index, component in ipairs(self._components) do
@@ -211,8 +237,21 @@ function EntitySystem.Create(name)
 				end
 			end
 	
-
-			Networking.send.entity_spawn(self._type, self.network_id, target, self._owner, component_updates)
+			local network_vars = {}
+			for index, component in ipairs(self._components) do
+				if(component.network_vars and type(component.network_vars) == "function")then
+					component.network_vars = component.network_vars(component)
+				end
+				if component.network_vars then
+					local component_vars = {}
+					for key, value in pairs(component.network_vars) do
+						component_vars[key] = value
+					end
+					table.insert(network_vars, component_vars)
+				end
+			end
+			
+			Networking.send.entity_spawn(self._type, self.network_id, target, self._owner, component_updates, network_vars)
 		end,
 		IsOwner = function(self)
 			if(self._owner == steamutils.getSteamID())then
@@ -256,6 +295,23 @@ function EntitySystem.Create(name)
 		end,
 		IsValid = function(self)
 			return self:IsAlive()
+		end,
+		OwnerDisconnected = function(self)
+			-- switch ownership to the host
+			if(steamutils.IsOwner())then
+				self:SetOwner(steamutils.getSteamID())
+			end
+			-- is now npc if kart
+			local kart = self:GetComponentOfType("Kart")
+			if(kart)then
+				kart.network_vars.is_npc = true
+			end
+		end,
+		SetNetworkVar = function(self, componentId, key, value)
+			local component = self._components[componentId]
+			if component then
+				component.network_vars[key] = value
+			end
 		end,
 		--[[GetTags = function(self)
 			return self._tags
@@ -492,7 +548,21 @@ function EntitySystem.NetworkSpawn(lobby, entityType, owner)
 			end
 		end
 
-		Networking.send.entity_spawn(entityType, EntitySystem.nextNetworkId, entity._owner, component_updates)
+		local network_vars = {}
+		for index, component in ipairs(entity._components) do
+			if(component.network_vars and type(component.network_vars) == "function")then
+				component.network_vars = component.network_vars(component)
+			end
+			if component.network_vars then
+				local component_vars = {}
+				for key, value in pairs(component.network_vars) do
+					component_vars[key] = value
+				end
+				table.insert(network_vars, component_vars)
+			end
+		end
+
+		Networking.send.entity_spawn(entityType, EntitySystem.nextNetworkId, entity._owner, component_updates, network_vars)
 
 		EntitySystem.nextNetworkId = EntitySystem.nextNetworkId + 1
 

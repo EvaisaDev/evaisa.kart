@@ -35,11 +35,16 @@ function ComponentSystem.CreateComponent(componentType)
     if ComponentSystem[componentType] then
         local comp = Utilities.deepCopy(ComponentSystem[componentType])
 
-		return comp
+        if comp.network_vars == nil then
+            comp.network_vars = NetworkVariables()
+        end
+
+        return comp
     else
         error("Component type " .. componentType .. " not found.")
     end
 end
+
 
 dofile("mods/evaisa.kart/files/scripts/defs/components.lua")
 

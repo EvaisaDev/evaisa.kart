@@ -4,6 +4,8 @@ local camera_mode = {
 	follow = 3,
 }
 
+CameraModes = camera_mode
+
 CameraSystem = {
 	mode = camera_mode.follow,
 	position = Vector3.new(0, 0, 25),

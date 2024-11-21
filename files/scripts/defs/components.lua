@@ -51,7 +51,9 @@ component_definitions = {
 					x = self.position.x,
 					y = self.position.y,
 					z = self.position.z,
-					r = self.rotation
+					r = self.rotation,
+					scale_x = self.scale.x,
+					scale_y = self.scale.y
 				}
 			end,
 			NetworkDeserialize = function(self, lobby, data)
@@ -60,6 +62,8 @@ component_definitions = {
 				self.position.y = data.y
 				self.position.z = data.z
 				self.rotation = data.r
+				self.scale.x = data.scale_x
+				self.scale.y = data.scale_y
 			end,
 			Update = function(self, entity, lobby)
 				if(self.inherit_transform)then
@@ -129,48 +133,6 @@ component_definitions = {
                     self.velocity.z = 0
                 end
 
-                -- Handle collisions with other entities
-				--[[
-                local all_entities = EntitySystem.GetAllEntities()
-                for _, other_entity in ipairs(all_entities) do
-                    if other_entity ~= entity then
-                        local collider = entity:GetComponentOfType("Collider")
-                        local other_collider = other_entity:GetComponentOfType("Collider")
-                        if collider and other_collider and collider:Intersects(other_collider) then
-							if(not other_collider.is_trigger and not collider.is_trigger) then
-								local other_velocity = other_entity:GetComponentOfType("Velocity")
-								if other_velocity then
-
-									-- Simple elastic collision response
-									local normal = (entity.transform.position - other_entity.transform.position):normalize()
-									local relative_velocity = self.velocity - other_velocity.velocity
-									local separating_velocity = relative_velocity:dot(normal)
-									if separating_velocity < 0 then
-										local new_sep_velocity = -separating_velocity * math.min(collider.restitution, other_collider.restitution)
-										local delta_velocity = new_sep_velocity - separating_velocity
-										local total_inverse_mass = 1 / collider.mass + 1 / other_collider.mass
-										local impulse = delta_velocity / total_inverse_mass
-										local impulse_per_mass = normal * impulse
-
-										self.velocity = self.velocity + impulse_per_mass / collider.mass
-										other_velocity.velocity = other_velocity.velocity - impulse_per_mass / other_collider.mass
-									end
-								else
-									-- Collision with a static entity (no velocity component)
-									local normal = (entity.transform.position - other_entity.transform.position):normalize()
-									local separating_velocity = self.velocity:dot(normal)
-									if separating_velocity < 0 then
-										local new_sep_velocity = -separating_velocity * collider.restitution
-										self.velocity = self.velocity + normal * (new_sep_velocity - separating_velocity)
-									end
-								end
-							end
-							-- Trigger OnCollision event
-							collider:OnCollision(other_collider)
-                        end
-                    end
-                end
-				]]
             end,
             GetVelocity = function(self)
                 return self.velocity
@@ -262,7 +224,9 @@ component_definitions = {
     {
         name = "Sprite",
         default_data = {
-            texture = nil,
+			network_vars = NetworkVariables{
+				texture = nil,
+			},
 			debug = false,
 			sprite_id = nil,
             GetTexture = function(self)
@@ -298,6 +262,14 @@ component_definitions = {
 					RenderingSystem.DrawLine(Vector3(entity.transform.position.x, entity.transform.position.y - 5, 0), Vector3(entity.transform.position.x, entity.transform.position.y + 5, 0), 0.5, 255, 0, 0)
 				end
             end,
+			NetworkSerialize = function(self, lobby)
+				return {
+					self:GetAnimation(),
+				}
+			end,
+			NetworkDeserialize = function(self, lobby, data)
+				self:SetAnimation(data[1])
+			end,
         }
     },
 	{
@@ -331,6 +303,16 @@ component_definitions = {
 	{
 		name = "Kart",
 		default_data = {
+			network_vars = NetworkVariables{
+				is_npc = false,
+				player_id = 0,
+				next_checkpoint = 1,     
+				last_checkpoint = 1,
+				last_rotation = 0,
+				wrongway_delay = 50,
+				wrongway_timer = 0,
+				was_wrongway = false,
+			},
 			config = {
 				acceleration = 0.2,
 				slow_mult = 0.9,
@@ -343,22 +325,27 @@ component_definitions = {
 				node_random_offset = 15,
 				max_turn_speed = 0.8,
 			},
-			is_npc = false,
-			player_id = 0,
 			current_node = nil,         -- The current node the AI is moving towards
-			next_checkpoint = 1,     
-			last_checkpoint = 1,
-			last_rotation = 0,
-			wrongway_delay = 50,
-			wrongway_timer = 0,
-			was_wrongway = false,
 			PlayerMovement = function(self, entity)
 				-- Get the input keys
-				local forwardPressed = InputIsKeyDown(26)
-				local backwardPressed = InputIsKeyDown(22)
-				local leftPressed = InputIsKeyDown(4)
-				local rightPressed = InputIsKeyDown(7)
-				local jumpPressed = InputIsKeyJustDown(44)
+				local forwardValue = bindings:GetAxis("kart_gameplay_gas_joy")
+				if(bindings:IsDown("kart_gameplay_gas"))then
+					forwardValue = 1
+				end
+				local backwardValue = bindings:GetAxis("kart_gameplay_reverse_joy")
+				if(bindings:IsDown("kart_gameplay_reverse"))then
+					backwardValue = 1
+				end
+				local steerValue = bindings:GetAxis("kart_gameplay_steering_joy")
+				
+				if(bindings:IsDown("kart_gameplay_left"))then
+					steerValue = math.min(1, steerValue + 1)
+				end
+				if(bindings:IsDown("kart_gameplay_right"))then
+					steerValue = math.max(-1, steerValue - 1)
+				end
+
+				local jumpPressed = bindings:IsDown("kart_gameplay_jump") or bindings:IsDown("kart_gameplay_jump_joy")
 	
 				-- Get the kart configuration
 				local acceleration = self.config.acceleration
@@ -366,23 +353,20 @@ component_definitions = {
 				local jump_power = self.config.jump_power
 	
 				-- Turn left or right based on input
-				if leftPressed then
-					entity.transform.rotation = entity.transform.rotation + turn_speed
+				if steerValue <= -0.01 or steerValue >= 0.01 then
+					entity.transform.rotation = entity.transform.rotation + (turn_speed * steerValue)
 				end
-				if rightPressed then
-					entity.transform.rotation = entity.transform.rotation - turn_speed
-				end
-	
+		
 				-- Get the Velocity component
 				local velocityComponent = entity:GetComponentOfType("Velocity")
 				if not velocityComponent then return end
 	
-				if forwardPressed then
-					velocityComponent.velocity.x = velocityComponent.velocity.x + math.cos(entity.transform.rotation + math.pi / 2) * acceleration
-					velocityComponent.velocity.y = velocityComponent.velocity.y + math.sin(entity.transform.rotation + math.pi / 2) * acceleration
-				elseif backwardPressed then
-					velocityComponent.velocity.x = velocityComponent.velocity.x - math.cos(entity.transform.rotation + math.pi / 2) * acceleration
-					velocityComponent.velocity.y = velocityComponent.velocity.y - math.sin(entity.transform.rotation + math.pi / 2) * acceleration
+				if forwardValue > 0.01 then
+					velocityComponent.velocity.x = velocityComponent.velocity.x + math.cos(entity.transform.rotation + math.pi / 2) * (acceleration * forwardValue)
+					velocityComponent.velocity.y = velocityComponent.velocity.y + math.sin(entity.transform.rotation + math.pi / 2) * (acceleration * forwardValue)
+				elseif backwardValue > 0.01 then
+					velocityComponent.velocity.x = velocityComponent.velocity.x - math.cos(entity.transform.rotation + math.pi / 2) * (acceleration * backwardValue)
+					velocityComponent.velocity.y = velocityComponent.velocity.y - math.sin(entity.transform.rotation + math.pi / 2) * (acceleration * backwardValue)
 				end
 	
 				-- Jump when the jump key is pressed
@@ -487,29 +471,6 @@ component_definitions = {
 				velocityComponent.velocity.x = velocityComponent.velocity.x + math.cos(entity.transform.rotation + math.pi / 2) * adjusted_acceleration
 				velocityComponent.velocity.y = velocityComponent.velocity.y + math.sin(entity.transform.rotation + math.pi / 2) * adjusted_acceleration
 			end,
-			NetworkSerialize = function(self, lobby)
-				return Structs.Kart{
-					is_npc = self.is_npc,
-					player_id = self.player_id,
-					next_checkpoint = self.next_checkpoint,
-					last_checkpoint = self.last_checkpoint,
-					last_rotation = self.last_rotation,
-					wrongway_delay = self.wrongway_delay,
-					wrongway_timer = self.wrongway_timer,
-					was_wrongway = self.was_wrongway
-				}
-			end,
-			NetworkDeserialize = function(self, lobby, data)
-				-- apply data
-				self.is_npc = data.is_npc
-				self.player_id = data.player_id
-				self.next_checkpoint = data.next_checkpoint
-				self.last_checkpoint = data.last_checkpoint
-				self.last_rotation = data.last_rotation
-				self.wrongway_delay = data.wrongway_delay
-				self.wrongway_timer = data.wrongway_timer
-				self.was_wrongway = data.was_wrongway
-			end,
 			Update = function(self, entity, lobby)
 				local map = TrackSystem.GetActiveTrack()
 				if not map then return end
@@ -520,10 +481,10 @@ component_definitions = {
 				
 
 				-- Check if the kart has passed a checkpoint
-				if(TrackSystem.CheckCheckpoint(x, y, self.next_checkpoint))then
-					self.next_checkpoint = self.next_checkpoint + 1
-					if self.next_checkpoint > #map.checkpoint_zones then
-						self.next_checkpoint = 1
+				if(TrackSystem.CheckCheckpoint(x, y, self.network_vars.next_checkpoint))then
+					self.network_vars.next_checkpoint = self.network_vars.next_checkpoint + 1
+					if self.network_vars.next_checkpoint > #map.checkpoint_zones then
+						self.network_vars.next_checkpoint = 1
 					end
 				end
 				
@@ -531,11 +492,11 @@ component_definitions = {
 				local checkpoint_index = TrackSystem.GetCurrentCheckpoint(x, y)
 				
 
-				if (checkpoint_index and (self.last_checkpoint and checkpoint_index < self.last_checkpoint and checkpoint_index > 1) or (self.last_checkpoint and self.last_checkpoint == checkpoint_index and self.was_wrongway)) then
-					self.was_wrongway = true
+				if (checkpoint_index and (self.network_vars.last_checkpoint and checkpoint_index < self.network_vars.last_checkpoint and checkpoint_index > 1) or (self.network_vars.last_checkpoint and self.network_vars.last_checkpoint == checkpoint_index and self.network_vars.was_wrongway)) then
+					self.network_vars.was_wrongway = true
 					-- Player is going the wrong way
-					if(self.wrongway_timer < self.wrongway_delay)then
-						self.wrongway_timer = self.wrongway_timer + 1
+					if(self.network_vars.wrongway_timer < self.network_vars.wrongway_delay)then
+						self.network_vars.wrongway_timer = self.network_vars.wrongway_timer + 1
 					else
 						-- Spawn Lakitu if not already spawned
 						if not self.lakitu_entity or not self.lakitu_entity:IsValid() then
@@ -562,23 +523,24 @@ component_definitions = {
 							lakitu_component.leave = true
 						end
 					end
-					self.wrongway_timer = 0
-					self.was_wrongway = false
+					self.network_vars.wrongway_timer = 0
+					self.network_vars.was_wrongway = false
 				end
 
-				self.last_checkpoint = checkpoint_index
+				self.network_vars.last_checkpoint = checkpoint_index
 
 				if(entity:IsOwner())then
-					if self.is_npc then
+					if self.network_vars.is_npc then
 						self:UpdateAIMovement(entity)
 					else
 						self:PlayerMovement(entity)
 		
 						-- Follow camera
 						CameraSystem.target_entity = entity
+						CameraSystem.mode = CameraModes.follow
 						if(RenderingSystem.debug_gizmos)then
 							-- track checkpoints
-							TrackSystem.DrawCheckpoint(self.next_checkpoint)
+							TrackSystem.DrawCheckpoint(self.network_vars.next_checkpoint)
 						end
 					end
 		
@@ -597,7 +559,7 @@ component_definitions = {
 						-- check if going fast and turning, if so, find ParticleEmitter component with tire_smoke tag enable it, otherwise disable it
 						if(velocityComponent)then
 							local speed = velocityComponent.velocity:len()
-							if(speed > 3 and self.last_rotation ~= entity.transform.rotation)then
+							if(speed > 3 and self.network_vars.last_rotation ~= entity.transform.rotation)then
 								local emitters = entity:GetComponentsOfType("ParticleEmitter", "tire_smoke")
 								for _, emitter in ipairs(emitters) do
 									emitter:Burst(1)
@@ -606,7 +568,7 @@ component_definitions = {
 						end
 					end
 
-					self.last_rotation = entity.transform.rotation
+					self.network_vars.last_rotation = entity.transform.rotation
 				end
 			end,
 		}

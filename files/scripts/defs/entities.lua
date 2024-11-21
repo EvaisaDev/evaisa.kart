@@ -37,9 +37,9 @@ entity_definitions = {
 					text = "",
 					offset_z = 35,
 					Update_hook = function(orig, self, entity, lobby)
-						if(GameGetFrameNum() % 20 == 0 and not entity:GetComponentOfType("Kart").is_npc and not self._entity:IsOwner())then
+						if(GameGetFrameNum() % 20 == 0 and not entity:GetComponentOfType("Kart").network_vars.is_npc and not self._entity:IsOwner())then
 							self.text = steam_utils.getTranslatedPersonaName(entity._owner)
-						elseif entity:GetComponentOfType("Kart").is_npc then
+						elseif entity:GetComponentOfType("Kart").network_vars.is_npc then
 							self.text = "NPC"
 						end
 						orig(self, entity, lobby)

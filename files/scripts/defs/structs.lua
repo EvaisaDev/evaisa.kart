@@ -12,6 +12,8 @@ typedef struct A {
     float y;
 	float z;
 	float r;
+	float scale_x;
+	float scale_y;
 } Transform;
 #pragma pack(pop)
 ]])
